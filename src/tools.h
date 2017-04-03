@@ -5,20 +5,16 @@
 
 class Tools {
 public:
-  /**
-  * Constructor.
-  */
-  Tools();
 
   /**
-  * Destructor.
+  * A helper method to calculate RMSE - just px and py
   */
-  virtual ~Tools();
+  static Eigen::VectorXd CalculateRMSE(const std::vector<Eigen::VectorXd> &estimations, const std::vector<Eigen::VectorXd> &ground_truth);
 
   /**
-  * A helper method to calculate RMSE.
+  * A helper function to map radar's polar space (rho, phi, rhodot) back to CTRV state (px,py,v,psi,psidot)
   */
-  Eigen::VectorXd CalculateRMSE(const std::vector<Eigen::VectorXd> &estimations, const std::vector<Eigen::VectorXd> &ground_truth);
+  static Eigen::VectorXd RadarToCTRV(const Eigen::VectorXd &z);
 
 };
 
