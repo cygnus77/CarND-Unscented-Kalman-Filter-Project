@@ -90,6 +90,9 @@ void UKF::ProcessMeasurement(MeasurementPackage measurement_pack) {
     return;
   }
 
+  if (measurement_pack.raw_measurements_(0) == 0 && measurement_pack.raw_measurements_(1) == 0)
+    measurement_pack.raw_measurements_(0) = measurement_pack.raw_measurements_(1) = 1e-5;
+
   // Initialize with first measurement
   if (!this->is_initialized_) {
 
@@ -133,7 +136,7 @@ void UKF::ProcessMeasurement(MeasurementPackage measurement_pack) {
   }
   previous_timestamp_ = measurement_pack.timestamp_;
 
-  std::cout << previous_timestamp_ << std::endl << x_ << std::endl << P_ << std::endl;
+  //std::cout << previous_timestamp_ << std::endl << x_ << std::endl << P_ << std::endl;
 
 }
 
@@ -314,10 +317,15 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
     Tc += weights_(i) * (Xsig_pred_.col(i) - x_) * ((Zsig.col(i) - z_pred).transpose());
   }
   //calculate Kalman gain K;
-  MatrixXd K = Tc * S.inverse();
+  MatrixXd Sinv = S.inverse();
+  MatrixXd K = Tc * Sinv;
+
+  MatrixXd z_diff = meas_package.raw_measurements_ - z_pred;
+
+  NIS_laser_ = (z_diff.transpose() * Sinv * z_diff)(0);
 
   //update state mean and covariance matrix
-  x_ = x_ + K*(meas_package.raw_measurements_ - z_pred);
+  x_ = x_ + K*z_diff;
   P_ = P_ - K*S*(K.transpose());
 }
 
@@ -388,17 +396,21 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   for (int i = 0; i < Zsig.cols(); i++) {
     Tc += weights_(i) * (Xsig_pred_.col(i) - x_) * ((Zsig.col(i) - z_pred).transpose());
   }
-  //calculate Kalman gain K;
-  MatrixXd K = Tc * S.inverse();
 
-  //residual
-  VectorXd z_diff = meas_package.raw_measurements_ - z_pred;
+  //calculate Kalman gain K;
+  MatrixXd Sinv = S.inverse();
+  MatrixXd K = Tc * Sinv;
+
+  MatrixXd z_diff = meas_package.raw_measurements_ - z_pred;
 
   //angle normalization
   while (z_diff(1)> M_PI) z_diff(1) -= 2.*M_PI;
   while (z_diff(1)<-M_PI) z_diff(1) += 2.*M_PI;
 
+  NIS_radar_ = (z_diff.transpose() * Sinv * z_diff)(0);
+
   //update state mean and covariance matrix
-  x_ = x_ + K * z_diff;
-  P_ = P_ - K*S*K.transpose();
+  x_ = x_ + K*z_diff;
+  P_ = P_ - K*S*(K.transpose());
+
 }
