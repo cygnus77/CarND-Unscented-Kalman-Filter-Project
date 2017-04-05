@@ -8,6 +8,14 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;
 
+double UKF::std_a_;
+double UKF::std_yawdd_;
+double UKF::std_laspx_;
+double UKF::std_laspy_;
+double UKF::std_radr_;
+double UKF::std_radphi_;
+double UKF::std_radrd_;
+
 /**
  * Initializes Unscented Kalman filter
  */
@@ -23,28 +31,28 @@ UKF::UKF() {
 
   // initial covariance matrix
   P_ = MatrixXd(5, 5);
-
+  /**
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 0.2;
+  std_a_ = 0.3;//0.3;//0.2;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 0.2;
+  std_yawdd_ = 0.3;//0.3;// 0.2;
 
   // Laser measurement noise standard deviation position1 in m
-  std_laspx_ = 0.15;
+  std_laspx_ = 0.15;//0.15;//0.15;
 
   // Laser measurement noise standard deviation position2 in m
-  std_laspy_ = 0.15;
+  std_laspy_ = 0.15;//0.15;// 0.15;
 
   // Radar measurement noise standard deviation radius in m
-  std_radr_ = 0.3;
+  std_radr_ = 0.5; //0.5; // 0.3;
 
   // Radar measurement noise standard deviation angle in rad
-  std_radphi_ = 0.0175;
+  std_radphi_ = 0.07; //0.07; // 0.0175;
 
   // Radar measurement noise standard deviation radius change in m/s
-  std_radrd_ = 0.1;
-
+  std_radrd_ = 0.6; //0.6; //0.1;
+  **/
   /**
   TODO:
 
@@ -91,7 +99,7 @@ void UKF::ProcessMeasurement(MeasurementPackage measurement_pack) {
   }
 
   if (measurement_pack.raw_measurements_(0) == 0 && measurement_pack.raw_measurements_(1) == 0)
-    measurement_pack.raw_measurements_(0) = measurement_pack.raw_measurements_(1) = 1e-5;
+    measurement_pack.raw_measurements_(0) = measurement_pack.raw_measurements_(1) = 1e-4;
 
   // Initialize with first measurement
   if (!this->is_initialized_) {

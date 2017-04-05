@@ -49,18 +49,29 @@ void check_files(ifstream& in_file, string& in_name,
     exit(EXIT_FAILURE);
   }
 }
+typedef struct {
+  double rmse_x, rmse_y;
+  double nis_total, nis_radar, nis_lidar;
+  bool isOK() {
+    return rmse_x < 0.2 && rmse_y < 0.2 && nis_total > 2 && nis_total < 10;
+  }
+} result_t;
 
-int main(int argc, char* argv[]) {
+result_t main_(int argc, char* argv[]) {
+
+  int lidar_large_NIS = 0, radar_large_NIS = 0;
+  int lidar_count = 0, radar_count = 0;
+  const double NIS_threshold = 7.8;
 
   check_arguments(argc, argv);
 
   string in_file_name_ = argv[1];
   ifstream in_file_(in_file_name_.c_str(), ifstream::in);
 
-  string out_file_name_ = argv[2];
-  ofstream out_file_(out_file_name_.c_str(), ofstream::out);
+  //string out_file_name_ = argv[2];
+  //ofstream out_file_(out_file_name_.c_str(), ofstream::out);
 
-  check_files(in_file_, in_file_name_, out_file_, out_file_name_);
+  //check_files(in_file_, in_file_name_, out_file_, out_file_name_);
 
   /**********************************************
    *  Set Measurements                          *
@@ -141,26 +152,29 @@ int main(int argc, char* argv[]) {
 
   size_t number_of_measurements = measurement_pack_list.size();
 
-  // column names for output file
-  out_file_ << "px" << "\t";
-  out_file_ << "py" << "\t";
-  out_file_ << "v" << "\t";
-  out_file_ << "yaw_angle" << "\t";
-  out_file_ << "yaw_rate" << "\t";
-  out_file_ << "px_measured" << "\t";
-  out_file_ << "py_measured" << "\t";
-  out_file_ << "px_true" << "\t";
-  out_file_ << "py_true" << "\t";
-  out_file_ << "vx_true" << "\t";
-  out_file_ << "vy_true" << "\t";
-  out_file_ << "NIS" << "\n";
+  //// column names for output file
+  //out_file_ << "type" << "\t";
+  //out_file_ << "px" << "\t";
+  //out_file_ << "py" << "\t";
+  //out_file_ << "v" << "\t";
+  //out_file_ << "yaw_angle" << "\t";
+  //out_file_ << "yaw_rate" << "\t";
+  //out_file_ << "px_measured" << "\t";
+  //out_file_ << "py_measured" << "\t";
+  //out_file_ << "px_true" << "\t";
+  //out_file_ << "py_true" << "\t";
+  //out_file_ << "vx_true" << "\t";
+  //out_file_ << "vy_true" << "\t";
+  //out_file_ << "NIS" << "\n";
 
 
   for (size_t k = 0; k < number_of_measurements; ++k) {
+
     // Call the UKF-based fusion
     ukf.ProcessMeasurement(measurement_pack_list[k]);
-
+    /*
     // output the estimation
+    out_file_ << (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER ? "L\t" : "R\t");
     out_file_ << ukf.x_(0) << "\t"; // pos1 - est
     out_file_ << ukf.x_(1) << "\t"; // pos2 - est
     out_file_ << ukf.x_(2) << "\t"; // vel_abs -est
@@ -189,13 +203,19 @@ int main(int argc, char* argv[]) {
     out_file_ << gt_pack_list[k].gt_values_(1) << "\t";
     out_file_ << gt_pack_list[k].gt_values_(2) << "\t";
     out_file_ << gt_pack_list[k].gt_values_(3) << "\t";
-
+    */
     // output the NIS values
     
     if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER) {
-      out_file_ << ukf.NIS_laser_ << "\n";
+      //out_file_ << ukf.NIS_laser_ << "\n";
+      lidar_count++;
+      if (ukf.NIS_laser_ > NIS_threshold)
+        lidar_large_NIS++;
     } else if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::RADAR) {
-      out_file_ << ukf.NIS_radar_ << "\n";
+      //out_file_ << ukf.NIS_radar_ << "\n";
+      radar_count++;
+      if (ukf.NIS_radar_ > NIS_threshold)
+        radar_large_NIS++;
     }
 
 
@@ -216,17 +236,119 @@ int main(int argc, char* argv[]) {
 
   // compute the accuracy (RMSE)
   Tools tools;
-  cout << "Accuracy - RMSE:" << endl << tools.CalculateRMSE(estimations, ground_truth) << endl;
+  VectorXd rmse = tools.CalculateRMSE(estimations, ground_truth);
+  //cout << "Accuracy - RMSE:" << endl << rmse << endl;
 
   // close files
-  if (out_file_.is_open()) {
-    out_file_.close();
-  }
+  //if (out_file_.is_open()) {
+  //  out_file_.close();
+  //}
 
   if (in_file_.is_open()) {
     in_file_.close();
   }
 
-  cout << "Done!" << endl;
+  result_t result;
+  result.rmse_x = rmse(0);
+  result.rmse_y = rmse(1);
+  result.nis_lidar = (lidar_large_NIS * 100.0 / lidar_count);
+  result.nis_radar = (radar_large_NIS * 100.0 / radar_count);
+  result.nis_total = ((lidar_large_NIS + radar_large_NIS) * 100.0) / (lidar_count + radar_count);
+
+  //cout << "NIS_Lidar: " << result.nis_lidar
+  //  << ", NIS_Radar: " << result.nis_radar
+  //  << ", NIS: " << result.nis_total
+  //  << endl;
+  //cout << "Done!" << endl;
+
+  
+  return result;
+}
+
+int main(int argc, char* argv[]) {
+#define DIR_LOC "C:\\Users\\Anand\\Desktop\\CarND-Unscented-Kalman-Filter-Project\\data\\"
+
+  UKF::std_a_ = 0.3;//0.3;//0.2;
+  UKF::std_yawdd_ = 0.3;//0.3;// 0.2;
+  UKF::std_laspx_ = 0.15;//0.15;//0.15;
+  UKF::std_laspy_ = 0.15;//0.15;// 0.15;
+  UKF::std_radr_ = 0.5; //0.5; // 0.3;
+  UKF::std_radphi_ = 0.07; //0.07; // 0.0175;
+  UKF::std_radrd_ = 0.6; //0.6; //0.1;
+
+  ofstream result_file(DIR_LOC"good_values.txt", ofstream::out);
+  // column names for output file
+  result_file << "std_a_:"
+    << ",std_yawdd_\t"
+    << ",std_laspx_\t"
+    << ",std_laspy_\t"
+    << ",std_radr_\t"
+    << ",std_radphi_\t"
+    << ",std_radrd_\t"
+    << "rmse_x \t"
+    << "1.rmse_y   \t"
+    << "1.nis_total\t"
+    << "1.nis_lidar\t"
+    << "1.nis_radar\t"
+    << "2.rmse_x   \t"
+    << "2.rmse_y   \t"
+    << "2.nis_total\t"
+    << "2.nis_lidar\t"
+    << "2.nis_radar"
+    << endl;
+
+  for (UKF::std_a_ = 0.05; UKF::std_a_ < 1.05; UKF::std_a_ += 0.2) {
+    for (UKF::std_yawdd_ = 0.05; UKF::std_yawdd_ < 1.05; UKF::std_yawdd_ += 0.2) {
+      for (UKF::std_laspx_ = UKF::std_laspy_ = 0.05; UKF::std_laspx_ < 2.05; UKF::std_laspx_ += 0.25, UKF::std_laspy_ += 0.25) {
+        for (UKF::std_radr_ = 0.05; UKF::std_radr_ < 1.05; UKF::std_radr_ += 0.2) {
+          for (UKF::std_radphi_ = 0.01; UKF::std_radphi_ < 0.51; UKF::std_radphi_ += 0.05) {
+            for (UKF::std_radrd_ = 0.05; UKF::std_radrd_ < 1.05; UKF::std_radrd_ += 0.2) {
+
+              char *args2[] = { "",
+                DIR_LOC"sample-laser-radar-measurement-data-2.txt",
+                DIR_LOC"output-2.txt" };
+              result_t result2 = main_(3, args2);
+              if (!result2.isOK()) continue;
+
+              char *args1[] = { "",
+                DIR_LOC"sample-laser-radar-measurement-data-1.txt",
+                DIR_LOC"output-1.txt" };
+              result_t result1 = main_(3, args1);
+
+              if (result1.isOK() && result2.isOK()) {
+                cout << "std_a_:"   << UKF::std_a_
+                  << ",std_yawdd_:" << UKF::std_yawdd_
+                  << ",std_laspx_:" << UKF::std_laspx_
+                  << ",std_laspy_:" << UKF::std_laspy_
+                  << ",std_radr_:"  << UKF::std_radr_
+                  << ",std_radphi_:"<< UKF::std_radphi_
+                  << ",std_radrd_:" << UKF::std_radrd_
+                  << endl;
+
+                result_file << UKF::std_a_ << "\t"
+                  << UKF::std_yawdd_ << "\t"
+                  << UKF::std_laspx_ << "\t"
+                  << UKF::std_laspy_ << "\t"
+                  << UKF::std_radr_ << "\t"
+                  << UKF::std_radphi_ << "\t"
+                  << UKF::std_radrd_ << "\t"
+                  << result1.rmse_x << "\t"
+                  << result1.rmse_y << "\t"
+                  << result1.nis_total << "\t"
+                  << result1.nis_lidar << "\t"
+                  << result1.nis_radar << "\t"
+                  << result2.rmse_x << "\t"
+                  << result2.rmse_y << "\t"
+                  << result2.nis_total << "\t"
+                  << result2.nis_lidar << "\t"
+                  << result2.nis_radar << endl;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  result_file.close();
   return 0;
 }
