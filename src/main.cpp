@@ -283,7 +283,14 @@ int gridsearch(const string& data_file1, const string& data_file2, vector<var_ra
     << "2.nis_radar"
     << endl;
   
-  doGridSearch(variables, [data_file2, data_file1, &result_file] () {
+  doGridSearch(variables, [&data_file2, &data_file1, &result_file] () {
+    cout << "std_a_:" << UKF::std_a_
+      << ",std_yawdd_:" << UKF::std_yawdd_
+      << ",std_laspx_:" << UKF::std_lasp_xy_
+      << ",std_radr_:" << UKF::std_radr_
+      << ",std_radphi_:" << UKF::std_radphi_
+      << ",std_radrd_:" << UKF::std_radrd_ << endl;
+
     // process file 2 first as it is smaller
     ifstream in_file2(data_file2, ifstream::in);
     result_t result2 = process_file(in_file2, null_out);
@@ -295,16 +302,10 @@ int gridsearch(const string& data_file1, const string& data_file2, vector<var_ra
     ifstream in_file1(data_file1, ifstream::in);
     result_t result1 = process_file(in_file1, null_out);
     in_file1.close();
-
     // check results and save it if the numbers look good
     if (result1.isInvalid() ||  result1.rmse_x > 0.09 || result1.rmse_y > 0.09) return;
-    cout << "std_a_:" << UKF::std_a_
-      << ",std_yawdd_:" << UKF::std_yawdd_
-      << ",std_laspx_:" << UKF::std_lasp_xy_
-      << ",std_radr_:" << UKF::std_radr_
-      << ",std_radphi_:" << UKF::std_radphi_
-      << ",std_radrd_:" << UKF::std_radrd_
-      << result1 << "\t" << result2 << endl;;
+
+    cout << "\t" << result1 << "\t" << result2 << endl;;
 
     result_file << UKF::std_a_ << "\t"
       << UKF::std_yawdd_ << "\t"
@@ -324,7 +325,7 @@ int main(int argc, char** argv) {
     cout << "Usage: \n\t<data_file> <results_file>\n\tgridsearch <data_file1> <data_file2> <results_file>" << endl;
     return 0;
   }
-  if (strncmp(argv[0], "gridsearch", 4) == 0) {
+  if (strncmp(argv[1], "gridsearch", 10) == 0) {
     if (argc < 5) {
       cout << "Usage: \n\tgridsearch <data_file1> <data_file2> <results_file>" << endl;
       return 0;
@@ -341,15 +342,15 @@ int main(int argc, char** argv) {
     gridsearch(argv[2], argv[3], ranges, argv[4]);
   }
   else {
-    // nan: 0.05	0.45	0.05	0.05	0.05	0.01	0.25
+    // nan: std_a_:1.05,std_yawdd_:0.25,std_laspx_:0.55,std_radr_:0.25,std_radphi_:0.01,std_radrd_:0.050 
 
     /* Values selected from scan results */
-    UKF::std_a_ = 0.05;//0.3;//0.2;
-    UKF::std_yawdd_ = 0.45;//0.3;// 0.2;
-    UKF::std_lasp_xy_ = 0.05;//0.15;//0.15;
-    UKF::std_radr_ = 0.05; //0.5; // 0.3;
+    UKF::std_a_ = 1.05;//0.3;//0.2;
+    UKF::std_yawdd_ = 0.25;//0.3;// 0.2;
+    UKF::std_lasp_xy_ = 0.55;//0.15;//0.15;
+    UKF::std_radr_ = 0.25; //0.5; // 0.3;
     UKF::std_radphi_ = 0.01; //0.07; // 0.0175;
-    UKF::std_radrd_ = 0.25; //0.6; //0.1;
+    UKF::std_radrd_ = 0.05; //0.6; //0.1;
 
     // process one file
     ifstream in_file(argv[1], ifstream::in);
