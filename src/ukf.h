@@ -29,6 +29,9 @@ public:
   ///* state covariance matrix
   MatrixXd P_;
 
+  ///* 
+  MatrixXd Radar_R_, Lidar_R_;
+
   ///* predicted sigma points matrix
   MatrixXd Xsig_pred_;
 
@@ -38,11 +41,8 @@ public:
   ///* Process noise standard deviation yaw acceleration in rad/s^2
   static double std_yawdd_;
 
-  ///* Laser measurement noise standard deviation position1 in m
-  static double std_laspx_;
-
-  ///* Laser measurement noise standard deviation position2 in m
-  static double std_laspy_;
+  ///* Laser measurement noise standard deviation position1 & 2 in m
+  static double std_lasp_xy_;
 
   ///* Radar measurement noise standard deviation radius in m
   static double std_radr_;
@@ -73,6 +73,8 @@ public:
 
   ///* previous timestamp
   long long previous_timestamp_;
+
+  const int LIDAR_MEAS_DIM = 2, RADAR_MEAS_DIM = 3;
 
   /**
    * Constructor

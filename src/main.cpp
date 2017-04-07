@@ -14,17 +14,27 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;
 
+// Encapsulate STD values and RMSE, NIS results produced on one file
 typedef struct {
-  double rmse_x, rmse_y, rmse_px, rmse_py;
+  double rmse_x, rmse_y, rmse_vx, rmse_vy;
   double nis_total, nis_radar, nis_lidar;
+  bool isInvalid() {
+    return isnan(rmse_x) || isnan(rmse_y) || isnan(rmse_vx) || isnan(rmse_vy);
+  }
 } result_t;
 
+ostream& operator << (ostream& os, result_t& result) {
+  os << result.rmse_x << "\t" << result.rmse_y << "\t" << result.rmse_vx << "\t" << result.rmse_vy << "\t" << result.nis_total << "\t" << result.nis_radar << "\t" << result.nis_lidar << endl;
+  return os;
+}
+
+// Null stream discards output - used in parameter search
 struct nullostream : std::ostream {
   nullostream() : std::ios(0), std::ostream(0) {}
 };
-
 static nullostream null_out;
 
+// Execute 
 result_t process_file(istream& in_file, ostream& out_file) {
 
   int lidar_large_NIS = 0, radar_large_NIS = 0;
@@ -165,13 +175,13 @@ result_t process_file(istream& in_file, ostream& out_file) {
     // output the NIS values
 
     if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER) {
-      //out_file << ukf.NIS_laser_ << "\n";
+      out_file << ukf.NIS_laser_ << "\n";
       lidar_count++;
       if (ukf.NIS_laser_ > NIS_threshold)
         lidar_large_NIS++;
     }
     else if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::RADAR) {
-      //out_file << ukf.NIS_radar_ << "\n";
+      out_file << ukf.NIS_radar_ << "\n";
       radar_count++;
       if (ukf.NIS_radar_ > NIS_threshold)
         radar_large_NIS++;
@@ -200,26 +210,59 @@ result_t process_file(istream& in_file, ostream& out_file) {
   result_t result;
   result.rmse_x = rmse(0);
   result.rmse_y = rmse(1);
-  result.rmse_px = rmse(2);
-  result.rmse_py = rmse(3);
+  result.rmse_vx = rmse(2);
+  result.rmse_vy = rmse(3);
   result.nis_lidar = (lidar_large_NIS * 100.0 / lidar_count);
   result.nis_radar = (radar_large_NIS * 100.0 / radar_count);
   result.nis_total = ((lidar_large_NIS + radar_large_NIS) * 100.0) / (lidar_count + radar_count);
   return result;
 }
 
-int scan() {
-#define DIR_LOC "C:\\Users\\Anand\\Desktop\\CarND-Unscented-Kalman-Filter-Project\\data\\"
+struct var_range {
+  double* pvar;
+  double start;
+  double end;
+  double step;
+  var_range(double* pvar, double start, double end, double step) : pvar(pvar), start(start), end(end), step(step) { }
+};
 
-  UKF::std_a_ = 0.2;//0.3;//0.2;
-  UKF::std_yawdd_ = 0.2;//0.3;// 0.2;
-  UKF::std_laspx_ = 0.15;//0.15;//0.15;
-  UKF::std_laspy_ = 0.15;//0.15;// 0.15;
-  UKF::std_radr_ = 0.3; //0.5; // 0.3;
-  UKF::std_radphi_ = 0.0175; //0.07; // 0.0175;
-  UKF::std_radrd_ = 0.1; //0.6; //0.1;
+bool isGridSearchDone(const vector<var_range>& variables) {
+  for (int i = 0; i < variables.size(); i++) {
+    if (*(variables[i].pvar) < variables[i].end)
+      return  false;
+  }
+  return true;
+}
 
-  ofstream result_file(DIR_LOC"good_values.txt", ofstream::out);
+void incrementGridSearch(const vector<var_range>& variables) {
+  for (int i = 0; i < variables.size(); i++) {
+    if (*(variables[i].pvar) < variables[i].end) {
+      *(variables[i].pvar) += variables[i].step;
+      return;
+    }
+    else {
+      *(variables[i].pvar) = variables[i].start;
+      continue;
+    }
+  }
+}
+
+void doGridSearch(vector<var_range>& variables, std::function<void(void)> fn)
+{
+  // Initialize all variables
+  for_each(variables.begin(), variables.end(), [](var_range& x) { *(x.pvar) = x.start; });
+  // Keep going till search is completed
+  while (!isGridSearchDone(variables)) {
+    // execute function
+    fn();
+    // increment to next search
+    incrementGridSearch(variables);
+  }
+}
+
+int gridsearch(const string& data_file1, const string& data_file2, vector<var_range>& variables, const string& results_file_name) {
+
+  ofstream result_file(results_file_name, ofstream::out);
   // column names for output file
   result_file << "std_a_:"
     << ",std_yawdd_\t"
@@ -239,91 +282,82 @@ int scan() {
     << "2.nis_lidar\t"
     << "2.nis_radar"
     << endl;
+  
+  doGridSearch(variables, [data_file2, data_file1, &result_file] () {
+    // process file 2 first as it is smaller
+    ifstream in_file2(data_file2, ifstream::in);
+    result_t result2 = process_file(in_file2, null_out);
+    in_file2.close();
+    // skip further processing if result is no good
+    if (result2.isInvalid() || result2.rmse_x > 0.2 || result2.rmse_y > 0.2) return;
 
-  for (UKF::std_a_ = 0.05; UKF::std_a_ < 1.05; UKF::std_a_ += 0.2) {
-    for (UKF::std_yawdd_ = 0.05; UKF::std_yawdd_ < 1.05; UKF::std_yawdd_ += 0.2) {
-      for (UKF::std_laspx_ = UKF::std_laspy_ = 0.05; UKF::std_laspx_ < 2.05; UKF::std_laspx_ += 0.25, UKF::std_laspy_ += 0.25) {
-        for (UKF::std_radr_ = 0.05; UKF::std_radr_ < 1.05; UKF::std_radr_ += 0.2) {
-          for (UKF::std_radphi_ = 0.01; UKF::std_radphi_ < 0.51; UKF::std_radphi_ += 0.05) {
-            for (UKF::std_radrd_ = 0.05; UKF::std_radrd_ < 1.05; UKF::std_radrd_ += 0.2) {
+    // process file 1
+    ifstream in_file1(data_file1, ifstream::in);
+    result_t result1 = process_file(in_file1, null_out);
+    in_file1.close();
 
+    // check results and save it if the numbers look good
+    if (result1.isInvalid() ||  result1.rmse_x > 0.09 || result1.rmse_y > 0.09) return;
+    cout << "std_a_:" << UKF::std_a_
+      << ",std_yawdd_:" << UKF::std_yawdd_
+      << ",std_laspx_:" << UKF::std_lasp_xy_
+      << ",std_radr_:" << UKF::std_radr_
+      << ",std_radphi_:" << UKF::std_radphi_
+      << ",std_radrd_:" << UKF::std_radrd_
+      << result1 << "\t" << result2 << endl;;
 
-              ifstream in_file2(DIR_LOC"sample-laser-radar-measurement-data-2.txt", ifstream::in);
-              
-              result_t result2 = process_file(in_file2, null_out);
+    result_file << UKF::std_a_ << "\t"
+      << UKF::std_yawdd_ << "\t"
+      << UKF::std_lasp_xy_ << "\t"
+      << UKF::std_radr_ << "\t"
+      << UKF::std_radphi_ << "\t"
+      << UKF::std_radrd_ << "\t"
+      << result1 << "\t" << result2 << endl;
+  });
 
-              in_file2.close();
-
-              if (result2.rmse_x > 0.2 || result2.rmse_y > 0.2) continue;
-
-              ifstream in_file1(DIR_LOC"sample-laser-radar-measurement-data-1.txt", ifstream::in);
-              
-              result_t result1 = process_file(in_file1, null_out);
-
-              in_file1.close();
-
-              if (result1.rmse_x > 0.09 || result1.rmse_y > 0.09) continue;
-              cout << "std_a_:" << UKF::std_a_
-                << ",std_yawdd_:" << UKF::std_yawdd_
-                << ",std_laspx_:" << UKF::std_laspx_
-                << ",std_laspy_:" << UKF::std_laspy_
-                << ",std_radr_:" << UKF::std_radr_
-                << ",std_radphi_:" << UKF::std_radphi_
-                << ",std_radrd_:" << UKF::std_radrd_
-                << endl;
-
-              result_file << UKF::std_a_ << "\t"
-                << UKF::std_yawdd_ << "\t"
-                << UKF::std_laspx_ << "\t"
-                << UKF::std_laspy_ << "\t"
-                << UKF::std_radr_ << "\t"
-                << UKF::std_radphi_ << "\t"
-                << UKF::std_radrd_ << "\t"
-                << result1.rmse_x << "\t"
-                << result1.rmse_y << "\t"
-                << result1.nis_total << "\t"
-                << result1.nis_lidar << "\t"
-                << result1.nis_radar << "\t"
-                << result2.rmse_x << "\t"
-                << result2.rmse_y << "\t"
-                << result2.nis_total << "\t"
-                << result2.nis_lidar << "\t"
-                << result2.nis_radar << endl;
-            }
-          }
-        }
-      }
-    }
-  }
   result_file.close();
   return 0;
 }
 
 int main(int argc, char** argv) {
-  if (argc < 2) {
-    cout << "Usage: " << endl;
+  if (argc < 3) {
+    cout << "Usage: \n\t<data_file> <results_file>\n\tgridsearch <data_file1> <data_file2> <results_file>" << endl;
     return 0;
   }
-
-  string cmd(argv[0]);
-  if (cmd == "scan") {
-    scan();
-  }
-  else if (cmd == "eval") {
-    ifstream values_file(argv[2], ifstream::in);
-    string line;
-    while (getline(values_file, line)) {
-      // Parse values, apply to statics,
-      // exectue process on both files
+  if (strncmp(argv[0], "gridsearch", 4) == 0) {
+    if (argc < 5) {
+      cout << "Usage: \n\tgridsearch <data_file1> <data_file2> <results_file>" << endl;
+      return 0;
     }
-    values_file.close();
+
+    vector<var_range> ranges;
+    ranges.push_back(var_range(&UKF::std_a_, 0.05, 1.05, 0.2));
+    ranges.push_back(var_range(&UKF::std_yawdd_, 0.05, 1.05, 0.2));
+    ranges.push_back(var_range(&UKF::std_lasp_xy_, 0.05, 2.05, 0.25));
+    ranges.push_back(var_range(&UKF::std_radr_, 0.05, 1.05, 0.2));
+    ranges.push_back(var_range(&UKF::std_radphi_, 0.01, 0.51, 0.05));
+    ranges.push_back(var_range(&UKF::std_radrd_, 0.05, 1.05, 0.2));
+
+    gridsearch(argv[2], argv[3], ranges, argv[4]);
   }
   else {
+    // nan: 0.05	0.45	0.05	0.05	0.05	0.01	0.25
+
+    /* Values selected from scan results */
+    UKF::std_a_ = 0.05;//0.3;//0.2;
+    UKF::std_yawdd_ = 0.45;//0.3;// 0.2;
+    UKF::std_lasp_xy_ = 0.05;//0.15;//0.15;
+    UKF::std_radr_ = 0.05; //0.5; // 0.3;
+    UKF::std_radphi_ = 0.01; //0.07; // 0.0175;
+    UKF::std_radrd_ = 0.25; //0.6; //0.1;
+
     // process one file
     ifstream in_file(argv[1], ifstream::in);
     ofstream out_file(argv[2], ofstream::out);
-    process_file(in_file, out_file);
+    result_t result = process_file(in_file, out_file);
     in_file.close();
     out_file.close();
+
+    cout << "RMSE: " << result << endl;
   }
 }
