@@ -260,30 +260,42 @@ void doGridSearch(vector<var_range>& variables, std::function<void(void)> fn)
   }
 }
 
-int gridsearch(const string& data_file1, const string& data_file2, vector<var_range>& variables, const string& results_file_name) {
+struct datafile {
+  string filename;
+  double limit_pxy, limit_vxy;
+  result_t result;
+  datafile(const string& fname, double lim_pxy, double lim_vxy) : filename(fname), limit_pxy(lim_pxy), limit_vxy(lim_vxy) { }
+
+  bool isInvalid() {
+    return (result.isInvalid() ||
+      result.rmse_x > limit_pxy || result.rmse_y > limit_pxy ||
+      result.rmse_vx > limit_vxy || result.rmse_vy > limit_vxy);
+  }
+};
+
+int gridsearch(vector<datafile> datafiles, vector<var_range>& variables, const string& results_file_name) {
 
   ofstream result_file(results_file_name, ofstream::out);
   // column names for output file
-  result_file << "std_a_:"
-    << ",std_yawdd_\t"
-    << ",std_laspx_\t"
-    << ",std_laspy_\t"
-    << ",std_radr_\t"
-    << ",std_radphi_\t"
-    << ",std_radrd_\t"
-    << "rmse_x \t"
-    << "1.rmse_y   \t"
-    << "1.nis_total\t"
-    << "1.nis_lidar\t"
-    << "1.nis_radar\t"
-    << "2.rmse_x   \t"
-    << "2.rmse_y   \t"
-    << "2.nis_total\t"
-    << "2.nis_lidar\t"
-    << "2.nis_radar"
-    << endl;
+  result_file << "std_a_"
+    << "std_yawdd_\t"
+    << "std_laspx_\t"
+    << "std_laspy_\t"
+    << "std_radr_\t"
+    << "std_radphi_\t"
+    << "std_radrd_\t";
+  for (int i = 0; i < datafiles.size(); i++) {
+    result_file << i + 1 << "rmse_px\t"
+      << i + 1 << "rmse_py\t"
+      << i + 1 << "rmse_vx\t"
+      << i + 1 << "rmse_vy\t"
+      << i + 1 << "nis_total\t"
+      << i + 1 << "nis_lidar\t"
+      << i + 1 << "nis_radar\t";
+  }
+  result_file << endl;
   
-  doGridSearch(variables, [&data_file2, &data_file1, &result_file] () {
+  doGridSearch(variables, [&datafiles, &result_file] () {
     cout << "std_a_:" << UKF::std_a_
       << ",std_yawdd_:" << UKF::std_yawdd_
       << ",std_laspx_:" << UKF::std_lasp_xy_
@@ -291,29 +303,29 @@ int gridsearch(const string& data_file1, const string& data_file2, vector<var_ra
       << ",std_radphi_:" << UKF::std_radphi_
       << ",std_radrd_:" << UKF::std_radrd_ << endl;
 
-    // process file 2 first as it is smaller
-    ifstream in_file2(data_file2, ifstream::in);
-    result_t result2 = process_file(in_file2, null_out);
-    in_file2.close();
-    // skip further processing if result is no good
-    if (result2.isInvalid() || result2.rmse_x > 0.2 || result2.rmse_y > 0.2) return;
-
-    // process file 1
-    ifstream in_file1(data_file1, ifstream::in);
-    result_t result1 = process_file(in_file1, null_out);
-    in_file1.close();
-    // check results and save it if the numbers look good
-    if (result1.isInvalid() ||  result1.rmse_x > 0.09 || result1.rmse_y > 0.09) return;
-
-    cout << "\t" << result1 << "\t" << result2 << endl;;
+    for (vector<datafile>::iterator df = datafiles.begin(); df != datafiles.end(); df++) {
+      // process file 1
+      ifstream in_file(df->filename, ifstream::in);
+      if (!in_file.is_open()) throw new string("Unable to open file");
+      df->result = process_file(in_file, null_out);
+      in_file.close();
+      // check results and save it if the numbers look good
+      if(df->isInvalid()) return;
+    }
 
     result_file << UKF::std_a_ << "\t"
       << UKF::std_yawdd_ << "\t"
       << UKF::std_lasp_xy_ << "\t"
       << UKF::std_radr_ << "\t"
       << UKF::std_radphi_ << "\t"
-      << UKF::std_radrd_ << "\t"
-      << result1 << "\t" << result2 << endl;
+      << UKF::std_radrd_ << "\t";
+
+    for (vector<datafile>::iterator df = datafiles.begin(); df != datafiles.end(); df++) {
+      cout << "\t" << df->result;
+      result_file << df->result << "\t";
+    }
+    cout << endl;
+    result_file  << endl;
   });
 
   result_file.close();
@@ -322,12 +334,12 @@ int gridsearch(const string& data_file1, const string& data_file2, vector<var_ra
 
 int main(int argc, char** argv) {
   if (argc < 3) {
-    cout << "Usage: \n\t<data_file> <results_file>\n\tgridsearch <data_file1> <data_file2> <results_file>" << endl;
+    cout << "Usage: \n\t<data_file> <results_file>\n\tgridsearch <results_file> {<data_file1> <limit_pxy> <limit_vxy>}+" << endl;
     return 0;
   }
   if (strncmp(argv[1], "gridsearch", 10) == 0) {
-    if (argc < 5) {
-      cout << "Usage: \n\tgridsearch <data_file1> <data_file2> <results_file>" << endl;
+    if (argc < 6) {
+      cout << "Usage: \n\tgridsearch <results_file> {<data_file1> <limit_pxy> <limit_vxy>}+" << endl;
       return 0;
     }
 
@@ -339,7 +351,12 @@ int main(int argc, char** argv) {
     ranges.push_back(var_range(&UKF::std_radphi_, 0.01, 0.51, 0.05));
     ranges.push_back(var_range(&UKF::std_radrd_, 0.05, 1.05, 0.2));
 
-    gridsearch(argv[2], argv[3], ranges, argv[4]);
+    vector<datafile> datafiles;
+    for (int i = 3; i < argc; i += 3) {
+      datafiles.push_back(datafile(argv[i], atof(argv[i + 1]), atof(argv[i + 2])));
+    }
+
+    gridsearch(datafiles, ranges, argv[2]);
   }
   else {
     // nan: std_a_:1.05,std_yawdd_:0.25,std_laspx_:0.55,std_radr_:0.25,std_radphi_:0.01,std_radrd_:0.050 
