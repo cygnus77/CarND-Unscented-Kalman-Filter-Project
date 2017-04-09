@@ -255,23 +255,17 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   */
   //// Code from Predict Radar Measurement - Assignment 1
 
-  //mean predicted measurement
-  VectorXd z_pred = VectorXd(LIDAR_MEAS_DIM);
-  z_pred.setZero();
-
-  //measurement covariance matrix S
-  MatrixXd S = MatrixXd(LIDAR_MEAS_DIM, LIDAR_MEAS_DIM);
-  S.setZero();
-
   //create matrix for sigma points in measurement space
   //transform sigma points into measurement space  
   MatrixXd Zsig = Xsig_pred_.block(0, 0, 2, Xsig_pred_.cols());
 
+  //mean predicted measurement
   //calculate mean predicted measurement
-  for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    z_pred += weights_(i) * Zsig.col(i);
-  }
+  VectorXd z_pred = (Zsig * weights2d_).rowwise().sum();
 
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(LIDAR_MEAS_DIM, LIDAR_MEAS_DIM);
+  S.setZero();
   //calculate measurement covariance matrix S
   for (int i = 0; i < Xsig_pred_.cols(); i++) {
     S += weights_(i) * (Zsig.col(i) - z_pred) * ((Zsig.col(i) - z_pred).transpose());
