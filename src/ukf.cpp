@@ -44,13 +44,17 @@ UKF::UKF() {
   lambda_ = 3 - n_aug_;
 
   weights_ = VectorXd(2 * n_aug_ + 1);
+  weights2d_ = MatrixXd(2 * n_aug_ + 1, 2 * n_aug_ + 1);
+  weights2d_.setZero();
 
   // pre-compute weights
   double weight_0 = lambda_ / (lambda_ + n_aug_);
   weights_(0) = weight_0;
+  weights2d_(0, 0) = weight_0;
   for (int i = 1; i < 2 * n_aug_ + 1; i++) {  //2n+1 weights
     double weight = 0.5 / (n_aug_ + lambda_);
     weights_(i) = weight;
+    weights2d_(i, i) = weight;
   }
 
   //set measurement dimension, lidar can measure x & y
@@ -171,12 +175,10 @@ void UKF::Prediction(double delta_t) {
   MatrixXd A = P_aug.llt().matrixL();
   MatrixXd B = sqrt(lambda_ + n_aug_)*A;
 
-  //create augmented sigma points
+  //create augmented sigma points - without explicit looping
   Xsig_aug.col(0) = x_aug;
-  for (int i = 0; i < n_aug_; i++) {
-    Xsig_aug.col(i + 1) = x_aug + B.col(i);
-    Xsig_aug.col(i + n_aug_ + 1) = x_aug - B.col(i);
-  }
+  Xsig_aug.block(0, 1, n_aug_, n_aug_) = B.colwise() + x_aug;
+  Xsig_aug.block(0, n_aug_ + 1, n_aug_, n_aug_) = -(B.colwise() - x_aug);
 
   //// Code from Sigma Point Prediction Assignment - 1
 
@@ -224,28 +226,20 @@ void UKF::Prediction(double delta_t) {
   VectorXd x = VectorXd(n_x_);
   x.setZero();
 
+  //predict state mean
+  x += (Xsig_pred_*weights2d_).rowwise().sum();
+
   //create covariance matrix for prediction
   MatrixXd P = MatrixXd(n_x_, n_x_);
-  P.setZero();
-
-  //set weights
-  double w1 = lambda_ / (lambda_ + n_aug_);
-  double w2 = 1.0 / (2 * (lambda_ + n_aug_));
-
-  //predict state mean
-  for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    double w = i == 0 ? w1 : w2;
-    x += w * Xsig_pred_.col(i);
-  }
-
+  auto Pview = P.setZero().selfadjointView<Eigen::Lower>();
   //predict state covariance matrix
   for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    double w = i == 0 ? w1 : w2;
-    P += w*(Xsig_pred_.col(i) - x)*((Xsig_pred_.col(i) - x).transpose());
+    // efficient way to calculate W*M*Mt
+    Pview.rankUpdate(Xsig_pred_.col(i) - x, weights_(i));
   }
 
   x_ = x;
-  P_ = P;
+  P_ = Pview;
 }
 
 /**

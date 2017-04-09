@@ -23,6 +23,7 @@ struct result_t {
   }
 };
 
+// Write result to stream
 ostream& operator << (ostream& os, result_t& result) {
   os << result.rmse_x << "\t" << result.rmse_y << "\t" << result.rmse_vx << "\t" << result.rmse_vy << "\t" << result.nis_total << "\t" << result.nis_radar << "\t" << result.nis_lidar;
   return os;
@@ -34,8 +35,8 @@ struct nullostream : std::ostream {
 };
 static nullostream null_out;
 
-// Execute 
-result_t process_file(istream& in_file, ostream& out_file) {
+// Execute UKF on an input file and write results to output stream
+result_t process_file(const string& in_file_name, ostream& out_file) {
 
   int lidar_large_NIS = 0, radar_large_NIS = 0;
   int lidar_count = 0, radar_count = 0;
@@ -49,6 +50,8 @@ result_t process_file(istream& in_file, ostream& out_file) {
   vector<GroundTruthPackage> gt_pack_list;
 
   string line;
+  ifstream in_file(in_file_name, ifstream::in);
+  if (!in_file.is_open()) throw new string("Unable to open file");
 
   // prep the measurement packages (each line represents a measurement at a
   // timestamp)
@@ -109,6 +112,8 @@ result_t process_file(istream& in_file, ostream& out_file) {
     gt_pack_list.push_back(gt_package);
   }
 
+  in_file.close();
+
   // Create a UKF instance
   UKF ukf;
 
@@ -122,20 +127,7 @@ result_t process_file(istream& in_file, ostream& out_file) {
   size_t number_of_measurements = measurement_pack_list.size();
 
   //// column names for output file
-  out_file << "type" << "\t";
-  out_file << "px" << "\t";
-  out_file << "py" << "\t";
-  out_file << "v" << "\t";
-  out_file << "yaw_angle" << "\t";
-  out_file << "yaw_rate" << "\t";
-  out_file << "px_measured" << "\t";
-  out_file << "py_measured" << "\t";
-  out_file << "px_true" << "\t";
-  out_file << "py_true" << "\t";
-  out_file << "vx_true" << "\t";
-  out_file << "vy_true" << "\t";
-  out_file << "NIS" << "\n";
-
+  out_file << "type\tpx\tpy\tv\tyaw_angle\tyaw_rate\tpx_measured\tpy_measured\tpx_true\tpy_true\tvx_true\tvy_true\tNIS\n";
 
   for (size_t k = 0; k < number_of_measurements; ++k) {
 
@@ -218,6 +210,7 @@ result_t process_file(istream& in_file, ostream& out_file) {
   return result;
 }
 
+// Base class for grid search variables
 class var {
 public:
   virtual void init() = 0;
@@ -225,6 +218,7 @@ public:
   virtual bool increment() = 0; // return true on wrap-around
 };
 
+// Variable range class: pointer to variable and range of values it can take
 class var_range : public var {
 public:
   double* pvar;
@@ -250,6 +244,7 @@ public:
   }
 };
 
+// Variable with fixed number of (predefined) values
 class var_enum : public var {
 public:
   double *pvar;
@@ -275,6 +270,7 @@ public:
   }
 };
 
+// Check to see if all variables have reached their max
 bool isGridSearchDone(vector<var*>& variables) {
   for (int i = 0; i < variables.size(); i++) {
     if (!variables[i]->isDone())
@@ -283,6 +279,7 @@ bool isGridSearchDone(vector<var*>& variables) {
   return true;
 }
 
+// Perform one increment on the grid search
 void incrementGridSearch(vector<var*>& variables) {
   for (int i = 0; i < variables.size(); i++) {
     if (!variables[i]->increment())
@@ -290,6 +287,7 @@ void incrementGridSearch(vector<var*>& variables) {
   }
 }
 
+// Excute full grid search
 void doGridSearch(vector<var*>& variables, std::function<void(void)> fn)
 {
   // Initialize all variables
@@ -303,6 +301,7 @@ void doGridSearch(vector<var*>& variables, std::function<void(void)> fn)
   }
 }
 
+// Encapsulate a data file and results produced from it
 struct datafile {
   string filename;
   double limit_pxy, limit_vxy;
@@ -316,17 +315,11 @@ struct datafile {
   }
 };
 
+// Execute grid search on provided list of files, write results to results_file_name
 int gridsearch(vector<datafile> datafiles, vector<var*>& variables, const string& results_file_name) {
-
   ofstream result_file(results_file_name, ofstream::out);
   // column names for output file
-  result_file << "std_a_\t"
-    << "std_yawdd_\t"
-    << "std_laspx_\t"
-    << "std_laspy_\t"
-    << "std_radr_\t"
-    << "std_radphi_\t"
-    << "std_radrd_\t";
+  result_file << "std_a_\tstd_yawdd_\tstd_laspx_\tstd_laspy_\tstd_radr_\tstd_radphi_\tstd_radrd_\t";
   for (int i = 0; i < datafiles.size(); i++) {
     result_file << i + 1 << "rmse_px\t"
       << i + 1 << "rmse_py\t"
@@ -338,6 +331,7 @@ int gridsearch(vector<datafile> datafiles, vector<var*>& variables, const string
   }
   result_file << endl;
   
+  // Execute grid search on list of files
   doGridSearch(variables, [&datafiles, &result_file] () {
     cout << "std_a_:" << UKF::std_a_
       << ",std_yawdd_:" << UKF::std_yawdd_
@@ -348,15 +342,14 @@ int gridsearch(vector<datafile> datafiles, vector<var*>& variables, const string
       << ",std_radrd_:" << UKF::std_radrd_ << endl;
 
     for (vector<datafile>::iterator df = datafiles.begin(); df != datafiles.end(); df++) {
-      // process file 1
-      ifstream in_file(df->filename, ifstream::in);
-      if (!in_file.is_open()) throw new string("Unable to open file");
-      df->result = process_file(in_file, null_out);
-      in_file.close();
-      // check results and save it if the numbers look good
+      // process each file
+      df->result = process_file(df->filename, null_out);
+      // check results and save it if the numbers look good, skip to next iteration otherwise
       if(df->isInvalid()) return;
     }
 
+    // If execution got here, we have a result matching criteria
+    // write out std values and results
     result_file << UKF::std_a_ << "\t"
       << UKF::std_yawdd_ << "\t"
       << UKF::std_lasp_xy_ << "\t"
@@ -387,15 +380,6 @@ int main(int argc, char** argv) {
       return 0;
     }
 
-    //vector<var> variables{
-    //  var_range(&UKF::std_a_, 0.05, 1.05, 0.2),
-    //  var_range(&UKF::std_yawdd_, 0.05, 1.05, 0.2),
-    //  var_range(&UKF::std_lasp_xy_, 0.05, 2.05, 0.25),
-    //  var_range(&UKF::std_radr_, 0.05, 1.05, 0.2),
-    //  var_range(&UKF::std_radphi_, 0.01, 0.51, 0.05),
-    //  var_range(&UKF::std_radrd_, 0.05, 1.05, 0.2)
-    //};
-
     vector<var*> variables {
       new var_enum(&UKF::std_a_, vector<double>{0.05, 0.25, 0.45, 0.85, 1.05, 1.25}),
       new var_enum(&UKF::std_yawdd_, vector<double>{0.1, 0.25, 0.5}),
@@ -419,21 +403,20 @@ int main(int argc, char** argv) {
     for_each(variables.begin(), variables.end(), [](var* x){delete x;});
   }
   else {
-    // nan: std_a_:1.05,std_yawdd_:0.25,std_laspx_:0.55,std_radr_:0.25,std_radphi_:0.01,std_radrd_:0.050 
-
+    // Values selected by analyzing gridsearch results in grid_search_results.txt
+    // 1.05	0.45	0.3	0.3	0.65	0.01	0.25	0.188713	0.178254	0.450425	0.46134	0.5	1	0	0.0702536	0.081734	0.581227	0.564668	14.2157	28.4314	0
+ 
     /* Values selected from scan results */
-    UKF::std_a_ = 1.05;//0.3;//0.2;
-    UKF::std_yawdd_ = 0.25;//0.3;// 0.2;
-    UKF::std_lasp_xy_ = 0.55;//0.15;//0.15;
-    UKF::std_radr_ = 0.25; //0.5; // 0.3;
-    UKF::std_radphi_ = 0.01; //0.07; // 0.0175;
-    UKF::std_radrd_ = 0.05; //0.6; //0.1;
+    UKF::std_a_ = 1.05;
+    UKF::std_yawdd_ = 0.45;
+    UKF::std_lasp_xy_ = 0.3;
+    UKF::std_radr_ = 0.65;
+    UKF::std_radphi_ = 0.01;
+    UKF::std_radrd_ = 0.25;
 
     // process one file
-    ifstream in_file(argv[1], ifstream::in);
     ofstream out_file(argv[2], ofstream::out);
-    result_t result = process_file(in_file, out_file);
-    in_file.close();
+    result_t result = process_file(argv[1], out_file);
     out_file.close();
 
     cout << "RMSE: " << result << endl;

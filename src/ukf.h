@@ -55,6 +55,7 @@ public:
 
   ///* Weights of sigma points
   VectorXd weights_;
+  MatrixXd weights2d_;
 
   ///* State dimension
   int n_x_;
