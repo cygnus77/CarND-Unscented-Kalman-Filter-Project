@@ -337,8 +337,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     double px = x(0), py = x(1), v = x(2), psi = x(3);
     double rho = sqrt(x(0)*x(0) + x(1)*x(1));
     double phi = atan2(py, px);
-    while (phi < -M_PI)phi += M_PI;
-    while (phi > M_PI)phi -= M_PI;
+    phi = atan2(sin(phi), cos(phi));
     double rhodot = (px*cos(psi)*v + py*sin(psi)*v) / rho;
     Zsig.col(i) << rho, phi, rhodot;
   }
@@ -371,8 +370,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   MatrixXd z_diff = meas_package.raw_measurements_ - z_pred;
 
   //angle normalization
-  while (z_diff(1) > M_PI) z_diff(1) -= 2.*M_PI;
-  while (z_diff(1) < -M_PI) z_diff(1) += 2.*M_PI;
+  z_diff(1) = atan2(sin(z_diff(1)), cos(z_diff(1)));
 
   NIS_radar_ = (z_diff.transpose() * Sinv * z_diff)(0);
 
