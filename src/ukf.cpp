@@ -265,11 +265,13 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   //measurement covariance matrix S
   MatrixXd S = MatrixXd(LIDAR_MEAS_DIM, LIDAR_MEAS_DIM);
-  S.setZero();
   //calculate measurement covariance matrix S
+  auto Sview = S.setZero().selfadjointView<Eigen::Lower>();
   for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    S += weights_(i) * (Zsig.col(i) - z_pred) * ((Zsig.col(i) - z_pred).transpose());
+    //efficient way of doing: S += weights_(i) * (Zsig.col(i) - z_pred) * ((Zsig.col(i) - z_pred).transpose());
+    Sview.rankUpdate((Zsig.col(i) - z_pred), weights_(i));
   }
+  S = Sview;
   S += Lidar_R_;
 
   //// Code from UKF Update Assignment - 1
@@ -311,34 +313,30 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //create matrix for sigma points in measurement space
   MatrixXd Zsig = MatrixXd(RADAR_MEAS_DIM, 2 * n_aug_ + 1);
 
-  //mean predicted measurement
-  VectorXd z_pred = VectorXd(RADAR_MEAS_DIM);
-  z_pred.setZero();
-
-  //measurement covariance matrix S
-  MatrixXd S = MatrixXd(RADAR_MEAS_DIM, RADAR_MEAS_DIM);
-  S.setZero();
-
   //transform sigma points into measurement space
   for (int i = 0; i < Xsig_pred_.cols(); i++) {
     VectorXd x = Xsig_pred_.col(i);
     double px = x(0), py = x(1), v = x(2), psi = x(3);
     double rho = sqrt(x(0)*x(0) + x(1)*x(1));
     double phi = atan2(py, px);
+    // normalize phi without explicit loop
     phi = atan2(sin(phi), cos(phi));
     double rhodot = (px*cos(psi)*v + py*sin(psi)*v) / rho;
     Zsig.col(i) << rho, phi, rhodot;
   }
 
+  //mean predicted measurement
   //calculate mean predicted measurement
-  for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    z_pred += weights_(i) * Zsig.col(i);
-  }
+  VectorXd z_pred = (Zsig * weights2d_).rowwise().sum();
 
-
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(RADAR_MEAS_DIM, RADAR_MEAS_DIM);
+  auto Sview = S.setZero().selfadjointView<Eigen::Lower>();
   for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    S += weights_(i) * (Zsig.col(i) - z_pred) * ((Zsig.col(i) - z_pred).transpose());
+    //efficient way to do: S += weights_(i) * (Zsig.col(i) - z_pred) * ((Zsig.col(i) - z_pred).transpose());
+    Sview.rankUpdate(Zsig.col(i) - z_pred, weights_(i));
   }
+  S = Sview;
   S += Radar_R_;
 
   //// Code from UKF Update Assignment - 1
