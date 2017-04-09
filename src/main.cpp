@@ -15,16 +15,16 @@ using Eigen::VectorXd;
 using std::vector;
 
 // Encapsulate STD values and RMSE, NIS results produced on one file
-typedef struct {
+struct result_t {
   double rmse_x, rmse_y, rmse_vx, rmse_vy;
   double nis_total, nis_radar, nis_lidar;
   bool isInvalid() {
     return isnan(rmse_x) || isnan(rmse_y) || isnan(rmse_vx) || isnan(rmse_vy);
   }
-} result_t;
+};
 
 ostream& operator << (ostream& os, result_t& result) {
-  os << result.rmse_x << "\t" << result.rmse_y << "\t" << result.rmse_vx << "\t" << result.rmse_vy << "\t" << result.nis_total << "\t" << result.nis_radar << "\t" << result.nis_lidar << endl;
+  os << result.rmse_x << "\t" << result.rmse_y << "\t" << result.rmse_vx << "\t" << result.rmse_vy << "\t" << result.nis_total << "\t" << result.nis_radar << "\t" << result.nis_lidar;
   return os;
 }
 
@@ -218,39 +218,82 @@ result_t process_file(istream& in_file, ostream& out_file) {
   return result;
 }
 
-struct var_range {
+class var {
+public:
+  virtual void init() = 0;
+  virtual bool isDone() const = 0;
+  virtual bool increment() = 0; // return true on wrap-around
+};
+
+class var_range : public var {
+public:
   double* pvar;
   double start;
   double end;
   double step;
   var_range(double* pvar, double start, double end, double step) : pvar(pvar), start(start), end(end), step(step) { }
+  void init() {
+    *pvar = start;
+  }
+  bool isDone() const {
+    return *pvar >= end;
+  }
+  bool increment() {
+    if (*pvar < end) {
+      *pvar += step;
+      return false;
+    }
+    else {
+      *pvar = start;
+      return true;
+    }
+  }
 };
 
-bool isGridSearchDone(const vector<var_range>& variables) {
+class var_enum : public var {
+public:
+  double *pvar;
+  vector<double> values;
+  int idx = 0;
+  var_enum(double* pvar, const vector<double>& vals) : pvar(pvar), values(vals) {}
+  void init() {
+    idx = 0;
+    *pvar = values[idx];
+  }
+  bool isDone() const {
+    return idx >= values.size() - 1;
+  }
+  bool increment() {
+    bool wrap = false;
+    idx++;
+    if (idx >= values.size()) {
+      idx = 0;
+      wrap = true;
+    }
+    *pvar = values[idx];
+    return wrap;
+  }
+};
+
+bool isGridSearchDone(vector<var*>& variables) {
   for (int i = 0; i < variables.size(); i++) {
-    if (*(variables[i].pvar) < variables[i].end)
-      return  false;
+    if (!variables[i]->isDone())
+      return false;
   }
   return true;
 }
 
-void incrementGridSearch(const vector<var_range>& variables) {
+void incrementGridSearch(vector<var*>& variables) {
   for (int i = 0; i < variables.size(); i++) {
-    if (*(variables[i].pvar) < variables[i].end) {
-      *(variables[i].pvar) += variables[i].step;
+    if (!variables[i]->increment())
       return;
-    }
-    else {
-      *(variables[i].pvar) = variables[i].start;
-      continue;
-    }
   }
 }
 
-void doGridSearch(vector<var_range>& variables, std::function<void(void)> fn)
+void doGridSearch(vector<var*>& variables, std::function<void(void)> fn)
 {
   // Initialize all variables
-  for_each(variables.begin(), variables.end(), [](var_range& x) { *(x.pvar) = x.start; });
+  for_each(variables.begin(), variables.end(), [](var* x) { x->init(); });
   // Keep going till search is completed
   while (!isGridSearchDone(variables)) {
     // execute function
@@ -273,11 +316,11 @@ struct datafile {
   }
 };
 
-int gridsearch(vector<datafile> datafiles, vector<var_range>& variables, const string& results_file_name) {
+int gridsearch(vector<datafile> datafiles, vector<var*>& variables, const string& results_file_name) {
 
   ofstream result_file(results_file_name, ofstream::out);
   // column names for output file
-  result_file << "std_a_"
+  result_file << "std_a_\t"
     << "std_yawdd_\t"
     << "std_laspx_\t"
     << "std_laspy_\t"
@@ -299,6 +342,7 @@ int gridsearch(vector<datafile> datafiles, vector<var_range>& variables, const s
     cout << "std_a_:" << UKF::std_a_
       << ",std_yawdd_:" << UKF::std_yawdd_
       << ",std_laspx_:" << UKF::std_lasp_xy_
+      << ",std_laspy_:" << UKF::std_lasp_xy_
       << ",std_radr_:" << UKF::std_radr_
       << ",std_radphi_:" << UKF::std_radphi_
       << ",std_radrd_:" << UKF::std_radrd_ << endl;
@@ -343,20 +387,36 @@ int main(int argc, char** argv) {
       return 0;
     }
 
-    vector<var_range> ranges;
-    ranges.push_back(var_range(&UKF::std_a_, 0.05, 1.05, 0.2));
-    ranges.push_back(var_range(&UKF::std_yawdd_, 0.05, 1.05, 0.2));
-    ranges.push_back(var_range(&UKF::std_lasp_xy_, 0.05, 2.05, 0.25));
-    ranges.push_back(var_range(&UKF::std_radr_, 0.05, 1.05, 0.2));
-    ranges.push_back(var_range(&UKF::std_radphi_, 0.01, 0.51, 0.05));
-    ranges.push_back(var_range(&UKF::std_radrd_, 0.05, 1.05, 0.2));
+    //vector<var> variables{
+    //  var_range(&UKF::std_a_, 0.05, 1.05, 0.2),
+    //  var_range(&UKF::std_yawdd_, 0.05, 1.05, 0.2),
+    //  var_range(&UKF::std_lasp_xy_, 0.05, 2.05, 0.25),
+    //  var_range(&UKF::std_radr_, 0.05, 1.05, 0.2),
+    //  var_range(&UKF::std_radphi_, 0.01, 0.51, 0.05),
+    //  var_range(&UKF::std_radrd_, 0.05, 1.05, 0.2)
+    //};
+
+    vector<var*> variables {
+      new var_enum(&UKF::std_a_, vector<double>{0.05, 0.25, 0.45, 0.85, 1.05, 1.25}),
+      new var_enum(&UKF::std_yawdd_, vector<double>{0.1, 0.25, 0.5}),
+      new var_enum(&UKF::std_lasp_xy_, vector<double>{0.3}),
+      new var_range(&UKF::std_radr_, 0.05, 1.05, 0.1),
+      new var_range(&UKF::std_radphi_, 0.005, 0.51, 0.005),
+      new var_range(&UKF::std_radrd_, 0.05, 1.25, 0.3)
+    };
+
+    int count = 0;
+    doGridSearch(variables, [&count]() {count++; });
+    cout << "Search size: " << count << endl;
 
     vector<datafile> datafiles;
     for (int i = 3; i < argc; i += 3) {
       datafiles.push_back(datafile(argv[i], atof(argv[i + 1]), atof(argv[i + 2])));
     }
 
-    gridsearch(datafiles, ranges, argv[2]);
+    gridsearch(datafiles, variables, argv[2]);
+
+    for_each(variables.begin(), variables.end(), [](var* x){delete x;});
   }
   else {
     // nan: std_a_:1.05,std_yawdd_:0.25,std_laspx_:0.55,std_radr_:0.25,std_radphi_:0.01,std_radrd_:0.050 
