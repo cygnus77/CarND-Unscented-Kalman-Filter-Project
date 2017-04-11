@@ -353,6 +353,7 @@ int gridsearch(vector<datafile> datafiles, vector<var*>& variables, const string
     result_file << UKF::std_a_ << "\t"
       << UKF::std_yawdd_ << "\t"
       << UKF::std_lasp_xy_ << "\t"
+      << UKF::std_lasp_xy_ << "\t"
       << UKF::std_radr_ << "\t"
       << UKF::std_radphi_ << "\t"
       << UKF::std_radrd_ << "\t";
@@ -379,14 +380,14 @@ int main(int argc, char** argv) {
       cout << "Usage: \n\tgridsearch <results_file> {<data_file1> <limit_pxy> <limit_vxy>}+" << endl;
       return 0;
     }
-
+   
     vector<var*> variables {
-      new var_enum(&UKF::std_a_, vector<double>{0.05, 0.25, 0.45, 0.85, 1.05, 1.25}),
-      new var_enum(&UKF::std_yawdd_, vector<double>{0.1, 0.25, 0.5}),
-      new var_enum(&UKF::std_lasp_xy_, vector<double>{0.3}),
-      new var_range(&UKF::std_radr_, 0.05, 1.05, 0.1),
-      new var_range(&UKF::std_radphi_, 0.005, 0.51, 0.005),
-      new var_range(&UKF::std_radrd_, 0.05, 1.25, 0.3)
+      new var_enum(&UKF::std_a_, vector<double>{1.0}),
+      new var_enum(&UKF::std_yawdd_, vector<double>{0.3}),
+      new var_range(&UKF::std_lasp_xy_, 0.05, 1.2, 0.01),
+      new var_enum(&UKF::std_radr_, vector<double>{0.25}),
+      new var_enum(&UKF::std_radphi_, vector<double>{0.0125}),
+      new var_enum(&UKF::std_radrd_, vector<double>{0.25})
     };
 
     int count = 0;
@@ -405,14 +406,44 @@ int main(int argc, char** argv) {
   else {
     // Values selected by analyzing gridsearch results in grid_search_results.txt
     // 1.05	0.45	0.3	0.3	0.65	0.01	0.25	0.188713	0.178254	0.450425	0.46134	0.5	1	0	0.0702536	0.081734	0.581227	0.564668	14.2157	28.4314	0
- 
-    /* Values selected from scan results */
+ //
+
+
+    //
+    //  ** LOWEST RMSE: **
+    //  std_a_ = 1.05, std_yawdd_ = 0.5
+    //  std_lasp_xy_ = 0.3
+    //  std_radr_ = 0.11, :std_radphi_ = 0.001, std_radrd_ = 0.11
+    //
+    //                PX        PY        VX        VY
+    //  "sample 1":  0.036368	0.032266	0.460496	0.459381
+    //  "sample 2":  0.181998	0.183915	0.388531	0.489551
+    //
+    //  But radar NIS too low on average: between 0.35 and 7.81 in only 26% of cases
+    //
     UKF::std_a_ = 1.05;
-    UKF::std_yawdd_ = 0.45;
+    UKF::std_yawdd_ = 0.5;
     UKF::std_lasp_xy_ = 0.3;
-    UKF::std_radr_ = 0.65;
-    UKF::std_radphi_ = 0.01;
+    UKF::std_radr_ = 0.11;
+    UKF::std_radphi_ = 0.001;
+    UKF::std_radrd_ = 0.11;
+
+
+    //
+    //  ** Better NIS **
+    //                PX        PY        VX        VY
+    //  "sample 1"  0.0885965 0.0959701 0.625904  0.601393
+    //  "sample 2"  0.268571  0.201483  0.556395  0.462457
+    //
+    //  Radar NIS between 0.35 and 7.81 in 62% of measurement
+    //
+    UKF::std_a_ = 0.1;
+    UKF::std_yawdd_ = 0.3;
+    UKF::std_lasp_xy_ = 0.09;
+    UKF::std_radr_ = 0.25;
+    UKF::std_radphi_ = 0.0125;
     UKF::std_radrd_ = 0.25;
+
 
     // process one file
     ofstream out_file(argv[2], ofstream::out);
@@ -422,3 +453,4 @@ int main(int argc, char** argv) {
     cout << "RMSE: " << result << endl;
   }
 }
+
