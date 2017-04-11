@@ -16,7 +16,7 @@ It uses a main file that calls a function called ProcessMeasurement. Anything im
 - The NIS of radar measurements must be between 0.35 and 7.81 in at least 80% of all radar update steps.
 
 
-## Achieving RMSE values in rubrik
+## Achieving RMSE and NIS values
 The following parameters were tuned using a grid-search method:
 	std_a		
 	std_yawdd	
@@ -40,7 +40,10 @@ It gathers the following metrics at each step:
 
 From the gathered data, parameters that meet the project goal could be easily selected.
 
-
+## Command line to run grid search
+```
+./UnscentedKF gridsearch ../data/good_values.txt ../data/sample-laser-radar-measurement-data-2.txt 0.2 0.55 ../data/sample-laser-radar-measurement-data-1.txt 0.09 0.65
+```
 ## Dependencies
 
 * cmake >= v3.5
