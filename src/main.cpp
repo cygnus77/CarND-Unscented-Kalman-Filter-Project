@@ -8,6 +8,7 @@
 #include "ukf.h"
 #include "ground_truth_package.h"
 #include "measurement_package.h"
+#include "gridsearch.h"
 
 using namespace std;
 using Eigen::MatrixXd;
@@ -68,7 +69,6 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
 
     if (sensor_type.compare("L") == 0) {
       // laser measurement
-
       // read measurements at this timestamp
       meas_package.sensor_type_ = MeasurementPackage::LASER;
       meas_package.raw_measurements_ = VectorXd(2);
@@ -211,97 +211,6 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
   return result;
 }
 
-// Base class for grid search variables
-class var {
-public:
-  virtual void init() = 0;
-  virtual bool isDone() const = 0;
-  virtual bool increment() = 0; // return true on wrap-around
-};
-
-// Variable range class: pointer to variable and range of values it can take
-class var_range : public var {
-public:
-  double* pvar;
-  double start;
-  double end;
-  double step;
-  var_range(double* pvar, double start, double end, double step) : pvar(pvar), start(start), end(end), step(step) { }
-  void init() {
-    *pvar = start;
-  }
-  bool isDone() const {
-    return *pvar >= end;
-  }
-  bool increment() {
-    if (*pvar < end) {
-      *pvar += step;
-      return false;
-    }
-    else {
-      *pvar = start;
-      return true;
-    }
-  }
-};
-
-// Variable with fixed number of (predefined) values
-class var_enum : public var {
-public:
-  double *pvar;
-  vector<double> values;
-  int idx = 0;
-  var_enum(double* pvar, const vector<double>& vals) : pvar(pvar), values(vals) {}
-  void init() {
-    idx = 0;
-    *pvar = values[idx];
-  }
-  bool isDone() const {
-    return idx >= values.size() - 1;
-  }
-  bool increment() {
-    bool wrap = false;
-    idx++;
-    if (idx >= values.size()) {
-      idx = 0;
-      wrap = true;
-    }
-    *pvar = values[idx];
-    return wrap;
-  }
-};
-
-// Check to see if all variables have reached their max
-bool isGridSearchDone(vector<var*>& variables) {
-  for (int i = 0; i < variables.size(); i++) {
-    if (!variables[i]->isDone())
-      return false;
-  }
-  return true;
-}
-
-// Perform one increment on the grid search
-void incrementGridSearch(vector<var*>& variables) {
-  for (int i = 0; i < variables.size(); i++) {
-    if (!variables[i]->increment())
-      return;
-  }
-}
-
-// Excute full grid search
-void doGridSearch(vector<var*>& variables, std::function<void(void)> fn)
-{
-  // Initialize all variables
-  for_each(variables.begin(), variables.end(), [](var* x) { x->init(); });
-  // Keep going till search is completed
-  while (!isGridSearchDone(variables)) {
-    // execute function
-    fn();
-    // increment to next search
-    incrementGridSearch(variables);
-  }
-}
-
 // Encapsulate a data file and results produced from it
 struct datafile {
   string filename;
@@ -333,7 +242,7 @@ int gridsearch(vector<datafile> datafiles, vector<var*>& variables, const string
   result_file << endl;
   
   // Execute grid search on list of files
-  doGridSearch(variables, [&datafiles, &result_file] () {
+  gridsearch::doGridSearch(variables, [&datafiles, &result_file] () {
     cout << "std_a_:" << UKF::std_a_
       << ",std_yawdd_:" << UKF::std_yawdd_
       << ",std_laspx_:" << UKF::std_lasp_xy_
@@ -392,7 +301,7 @@ int main(int argc, char** argv) {
     };
 
     int count = 0;
-    doGridSearch(variables, [&count]() {count++; });
+    gridsearch::doGridSearch(variables, [&count]() {count++; });
     cout << "Search size: " << count << endl;
 
     vector<datafile> datafiles;
@@ -405,10 +314,6 @@ int main(int argc, char** argv) {
     for_each(variables.begin(), variables.end(), [](var* x){delete x;});
   }
   else {
-    // Values selected by analyzing gridsearch results in grid_search_results.txt
-    // 1.05	0.45	0.3	0.3	0.65	0.01	0.25	0.188713	0.178254	0.450425	0.46134	0.5	1	0	0.0702536	0.081734	0.581227	0.564668	14.2157	28.4314	0
- //
-
 
     //
     //  ** LOWEST RMSE: **
@@ -421,30 +326,29 @@ int main(int argc, char** argv) {
     //  "sample 2":  0.181998	0.183915	0.388531	0.489551
     //
     //  But radar NIS too low on average: between 0.35 and 7.81 in only 26% of cases
-    //
+    /*
     UKF::std_a_ = 1.05;
     UKF::std_yawdd_ = 0.5;
     UKF::std_lasp_xy_ = 0.3;
     UKF::std_radr_ = 0.11;
     UKF::std_radphi_ = 0.001;
     UKF::std_radrd_ = 0.11;
-
+    */
 
     //
     //  ** Better NIS **
     //                PX        PY        VX        VY
-    //  "sample 1"  0.0885965 0.0959701 0.625904  0.601393
-    //  "sample 2"  0.268571  0.201483  0.556395  0.462457
+    //  "sample 1"  0.0533476 0.0627673 0.55714   0.551546
+    //  "sample 2"  0.198674  0.191792	0.474725	0.5422
     //
-    //  Radar NIS between 0.35 and 7.81 in 62% of measurement
+    //  Radar NIS between 0.35 and 7.81 in 81% of measurement
     //
-    UKF::std_a_ = 0.1;
-    UKF::std_yawdd_ = 0.3;
-    UKF::std_lasp_xy_ = 0.09;
+    UKF::std_a_ = 0.12;
+    UKF::std_yawdd_ = 0.54;
+    UKF::std_lasp_xy_ = 0.0825;
     UKF::std_radr_ = 0.25;
     UKF::std_radphi_ = 0.0125;
     UKF::std_radrd_ = 0.25;
-
 
     // process one file
     ofstream out_file(argv[2], ofstream::out);
