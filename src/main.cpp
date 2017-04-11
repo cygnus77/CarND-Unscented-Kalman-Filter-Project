@@ -38,9 +38,10 @@ static nullostream null_out;
 // Execute UKF on an input file and write results to output stream
 result_t process_file(const string& in_file_name, ostream& out_file) {
 
-  int lidar_large_NIS = 0, radar_large_NIS = 0;
+  int lidar_inrange_NIS = 0, radar_inrange_NIS = 0;
   int lidar_count = 0, radar_count = 0;
-  const double NIS_threshold = 7.8;
+  const double NIS_lower_threshold = 0.35;
+  const double NIS_upper_threshold = 7.81;
 
   /**********************************************
    *  Set Measurements                          *
@@ -169,14 +170,14 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
     if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER) {
       out_file << ukf.NIS_laser_ << "\n";
       lidar_count++;
-      if (ukf.NIS_laser_ > NIS_threshold)
-        lidar_large_NIS++;
+      if (ukf.NIS_laser_ >= NIS_lower_threshold && ukf.NIS_laser_ <= NIS_upper_threshold)
+        lidar_inrange_NIS++;
     }
     else if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::RADAR) {
       out_file << ukf.NIS_radar_ << "\n";
       radar_count++;
-      if (ukf.NIS_radar_ > NIS_threshold)
-        radar_large_NIS++;
+      if (ukf.NIS_radar_ >= NIS_lower_threshold && ukf.NIS_radar_ <= NIS_upper_threshold)
+        radar_inrange_NIS++;
     }
 
 
@@ -204,9 +205,9 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
   result.rmse_y = rmse(1);
   result.rmse_vx = rmse(2);
   result.rmse_vy = rmse(3);
-  result.nis_lidar = (lidar_large_NIS * 100.0 / lidar_count);
-  result.nis_radar = (radar_large_NIS * 100.0 / radar_count);
-  result.nis_total = ((lidar_large_NIS + radar_large_NIS) * 100.0) / (lidar_count + radar_count);
+  result.nis_lidar = (lidar_inrange_NIS * 100.0 / lidar_count);
+  result.nis_radar = (radar_inrange_NIS * 100.0 / radar_count);
+  result.nis_total = ((lidar_inrange_NIS + radar_inrange_NIS) * 100.0) / (lidar_count + radar_count);
   return result;
 }
 
