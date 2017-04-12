@@ -67,6 +67,8 @@ UKF::UKF() {
   Radar_R_.setZero();
   Radar_R_.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_, std_radrd_*std_radrd_;
 
+  NIS_laser_ = 0;
+  NIS_radar_ = 0;
 
   is_initialized_ = false;
 }

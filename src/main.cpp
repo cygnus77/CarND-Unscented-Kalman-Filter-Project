@@ -15,6 +15,9 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;
 
+// define this to produce output for kalman-tracker visualization
+#undef SIMULATION
+
 // Encapsulate STD values and RMSE, NIS results produced on one file
 struct result_t {
   double rmse_x, rmse_y, rmse_vx, rmse_vy;
@@ -26,7 +29,9 @@ struct result_t {
 
 // Write result to stream
 ostream& operator << (ostream& os, result_t& result) {
-  os << result.rmse_x << "\t" << result.rmse_y << "\t" << result.rmse_vx << "\t" << result.rmse_vy << "\t" << result.nis_total << "\t" << result.nis_radar << "\t" << result.nis_lidar;
+  os << result.rmse_x << "\t" << result.rmse_y << "\t" << result.rmse_vx << "\t" << result.rmse_vy << "\t" << result.nis_total 
+    //<< "\t" << result.nis_radar << "\t" << result.nis_lidar
+    ;
   return os;
 }
 
@@ -58,6 +63,7 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
   // prep the measurement packages (each line represents a measurement at a
   // timestamp)
   while (getline(in_file, line)) {
+    cerr << line << endl;
     string sensor_type;
     MeasurementPackage meas_package;
     GroundTruthPackage gt_package;
@@ -128,12 +134,31 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
   size_t number_of_measurements = measurement_pack_list.size();
 
   //// column names for output file
+#ifndef SIMULATION
   out_file << "type\tpx\tpy\tv\tyaw_angle\tyaw_rate\tpx_measured\tpy_measured\tpx_true\tpy_true\tvx_true\tvy_true\tNIS\n";
+#endif
 
   for (size_t k = 0; k < number_of_measurements; ++k) {
 
     // Call the UKF-based fusion
     ukf.ProcessMeasurement(measurement_pack_list[k]);
+
+
+    // convert ukf x vector to cartesian to compare to ground truth
+    VectorXd ukf_x_cartesian_ = VectorXd(4);
+
+    double x_estimate_ = ukf.x_(0);
+    double y_estimate_ = ukf.x_(1);
+    double vx_estimate_ = ukf.x_(2) * cos(ukf.x_(3));
+    double vy_estimate_ = ukf.x_(2) * sin(ukf.x_(3));
+
+#ifdef SIMULATION
+    // Output for kalman tracker visualization
+    out_file << x_estimate_ << "\t";
+    out_file << y_estimate_ << "\t";
+    out_file << vx_estimate_ << "\t";
+    out_file << vy_estimate_ << "\t";
+#else
     // output the estimation
     out_file << (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER ? "L\t" : "R\t");
     out_file << ukf.x_(0) << "\t"; // pos1 - est
@@ -141,7 +166,7 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
     out_file << ukf.x_(2) << "\t"; // vel_abs -est
     out_file << ukf.x_(3) << "\t"; // yaw_angle -est
     out_file << ukf.x_(4) << "\t"; // yaw_rate -est
-
+#endif
     // output the measurements
     if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER) {
       // output the estimation
@@ -164,9 +189,16 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
     out_file << gt_pack_list[k].gt_values_(0) << "\t";
     out_file << gt_pack_list[k].gt_values_(1) << "\t";
     out_file << gt_pack_list[k].gt_values_(2) << "\t";
-    out_file << gt_pack_list[k].gt_values_(3) << "\t";
-    // output the NIS values
+    out_file << gt_pack_list[k].gt_values_(3) <<
+#ifdef SIMULATION
+      "\n"
+#else
+      "\t"
+#endif
+      ;
 
+    // output the NIS values
+#ifndef SIMULATION
     if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER) {
       out_file << ukf.NIS_laser_ << "\n";
       lidar_count++;
@@ -179,15 +211,7 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
       if (ukf.NIS_radar_ >= NIS_lower_threshold && ukf.NIS_radar_ <= NIS_upper_threshold)
         radar_inrange_NIS++;
     }
-
-
-    // convert ukf x vector to cartesian to compare to ground truth
-    VectorXd ukf_x_cartesian_ = VectorXd(4);
-
-    float x_estimate_ = ukf.x_(0);
-    float y_estimate_ = ukf.x_(1);
-    float vx_estimate_ = ukf.x_(2) * cos(ukf.x_(3));
-    float vy_estimate_ = ukf.x_(2) * sin(ukf.x_(3));
+#endif
 
     ukf_x_cartesian_ << x_estimate_, y_estimate_, vx_estimate_, vy_estimate_;
 
@@ -349,13 +373,14 @@ int main(int argc, char** argv) {
     UKF::std_radr_ = 0.25;
     UKF::std_radphi_ = 0.0125;
     UKF::std_radrd_ = 0.25;
-
+    cerr << "processing: " << argv[1] << " --> " << argv[2] << endl;
     // process one file
     ofstream out_file(argv[2], ofstream::out);
     result_t result = process_file(argv[1], out_file);
     out_file.close();
+    cerr << "done: " << result << endl;
 
-    cout << "RMSE: " << result << endl;
+    cout << "Accuracy - RMSE:" << endl << result.rmse_x << endl << result.rmse_y << endl << result.rmse_vx << endl << result.rmse_vy << endl << endl;
   }
 }
 

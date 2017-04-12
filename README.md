@@ -15,6 +15,9 @@ It uses a main file that calls a function called ProcessMeasurement. Anything im
 - The RMSE of laser AND radar must be lower than radar only or laser only
 - The NIS of radar measurements must be between 0.35 and 7.81 in at least 80% of all radar update steps.
 
+## Visualization
+
+![Visualization](./Simulation.png)
 
 ## Achieving RMSE and NIS values
 The following parameters were tuned using a grid-search method:
