@@ -63,7 +63,6 @@ result_t process_file(const string& in_file_name, ostream& out_file) {
   // prep the measurement packages (each line represents a measurement at a
   // timestamp)
   while (getline(in_file, line)) {
-    cerr << line << endl;
     string sensor_type;
     MeasurementPackage meas_package;
     GroundTruthPackage gt_package;
@@ -316,12 +315,12 @@ int main(int argc, char** argv) {
     }
    
     vector<var*> variables {
-      new var_enum(&UKF::std_a_, vector<double>{1.0}),
-      new var_enum(&UKF::std_yawdd_, vector<double>{0.3}),
-      new var_range(&UKF::std_lasp_xy_, 0.05, 1.2, 0.01),
-      new var_enum(&UKF::std_radr_, vector<double>{0.25}),
-      new var_enum(&UKF::std_radphi_, vector<double>{0.0125}),
-      new var_enum(&UKF::std_radrd_, vector<double>{0.25})
+      new var_range(&UKF::std_a_, 0.001, 0.1, 0.01),
+      new var_range(&UKF::std_yawdd_, 0.05, 0.25, 0.01),
+      new var_enum(&UKF::std_lasp_xy_, vector<double>{0.0225}),
+      new var_enum(&UKF::std_radr_, vector<double>{0.09}),
+      new var_enum(&UKF::std_radphi_, vector<double>{0.009}),
+      new var_enum(&UKF::std_radrd_, vector<double>{0.09})
     };
 
     int count = 0;
@@ -373,12 +372,10 @@ int main(int argc, char** argv) {
     UKF::std_radr_ = 0.25;
     UKF::std_radphi_ = 0.0125;
     UKF::std_radrd_ = 0.25;
-    cerr << "processing: " << argv[1] << " --> " << argv[2] << endl;
     // process one file
     ofstream out_file(argv[2], ofstream::out);
     result_t result = process_file(argv[1], out_file);
     out_file.close();
-    cerr << "done: " << result << endl;
 
     cout << "Accuracy - RMSE:" << endl << result.rmse_x << endl << result.rmse_y << endl << result.rmse_vx << endl << result.rmse_vy << endl << endl;
   }
