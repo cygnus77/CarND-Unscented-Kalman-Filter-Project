@@ -30,7 +30,9 @@ struct result_t {
 // Write result to stream
 ostream& operator << (ostream& os, result_t& result) {
   os << result.rmse_x << "\t" << result.rmse_y << "\t" << result.rmse_vx << "\t" << result.rmse_vy << "\t" << result.nis_total 
-    //<< "\t" << result.nis_radar << "\t" << result.nis_lidar
+#ifndef SIMULATION
+     << "\t" << result.nis_radar << "\t" << result.nis_lidar
+#endif
     ;
   return os;
 }
