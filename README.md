@@ -76,6 +76,7 @@ After studying the data sets and grid search results, I obtained the following r
 	- std_radrd = 0.11
 
 Data | PX | PY | VX | VY
+--- | --- | --- | --- | ---
 "sample 1" | 0.036368 | 0.032266 | 0.460496 | 0.459381
 "sample 2" | 0.181998 | 0.183915 | 0.388531 | 0.489551
 
@@ -94,6 +95,7 @@ Data | PX | PY | VX | VY
 	- std_radrd = 0.09
 
 Data | PX | PY | VX | VY
+--- | --- | --- | --- | ---
 "sample 1" | 0.0439351 | 0.0541247 | 0.533012 | 0.539625
 "sample 2" | 0.199834 | 0.197363 | 0.376363 | 0.463544
 
@@ -112,6 +114,7 @@ Data | PX | PY | VX | VY
 	- std_radrd = 0.25
 
 Data | PX | PY | VX | VY
+--- | --- | --- | --- | ---
 "sample 1" | 0.0533476 | 0.0627673 | 0.55714 | 0.551546
 "sample 2" | 0.198674 | 0.191792 | 0.474725 | 0.5422
 
