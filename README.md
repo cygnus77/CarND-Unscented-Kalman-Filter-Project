@@ -54,7 +54,7 @@ It gathers the following metrics at each step:
 
 Pandas dataframes and pyplot are used in plot.py to 3D-plot:
 X-axis: std-a, Y-axis: std_yawdd and Z-axis: NIS %.
-[3D-plot](NIS-plot.png)
+![3D-plot](./NIS-plot.png)
 
 
 ## Command line to run grid search
