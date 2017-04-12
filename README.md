@@ -60,6 +60,63 @@ Pandas dataframes and pyplot are used in plot.py to 3D-plot:
 X-axis: std-a, Y-axis: std_yawdd and Z-axis: NIS %.
 ![3D-plot](./NIS-plot.png)
 
+## Results
+After studying the data sets and grid search results, I obtained the following results:
+
+### Lowest RMSE
+
+- Process noise
+	- std_a = 1.05
+	- std_yawdd = 0.5
+
+- Measurement noise
+	- std_lasp_x = std_lasp_y = 0.3
+	- std_radr = 0.11
+	- std_radphi = 0.001
+	- std_radrd = 0.11
+
+Data | PX | PY | VX | VY
+"sample 1" | 0.036368 | 0.032266 | 0.460496 | 0.459381
+"sample 2" | 0.181998 | 0.183915 | 0.388531 | 0.489551
+
+** NIS:** Radar NIS too low on average: between 0.35 and 7.81 in only 26% of cases
+
+### Using noise values provided in EKF project
+
+- Process noise
+	- std_a = 1.041
+	- std_yawdd = 0.25
+
+- Measurement noise
+	- std_lasp_x = std_lasp_y = 0.0225
+	- std_radr = 0.09
+	- std_radphi = 0.009
+	- std_radrd = 0.09
+
+Data | PX | PY | VX | VY
+"sample 1" | 0.0439351 | 0.0541247 | 0.533012 | 0.539625
+"sample 2" | 0.199834 | 0.197363 | 0.376363 | 0.463544
+
+** NIS:** Radar NIS between 0.35 and 7.81 in only 42% of measurements
+
+### Good NIS
+
+- Process noise
+	- std_a = 0.12
+	- std_yawdd = 0.54
+
+- Measurement noise
+	- std_lasp_x = std_lasp_y = 0.0825
+	- std_radr = 0.25
+	- std_radphi = 0.0125
+	- std_radrd = 0.25
+
+Data | PX | PY | VX | VY
+"sample 1" | 0.0533476 | 0.0627673 | 0.55714 | 0.551546
+"sample 2" | 0.198674 | 0.191792 | 0.474725 | 0.5422
+
+** NIS:** Radar NIS between 0.35 and 7.81 in 81% of measurement
+
 
 ## Command line to run grid search
 ```
