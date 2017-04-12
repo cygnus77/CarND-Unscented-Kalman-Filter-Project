@@ -21,13 +21,17 @@ It uses a main file that calls a function called ProcessMeasurement. Anything im
 
 ## Achieving RMSE and NIS values
 The following parameters were tuned using a grid-search method:
-	std_a		
-	std_yawdd	
-	std_laspx
-	std_laspy	
-	std_radr	
-	std_radphi
-	std_radrd
+	- process noise
+		-- std_a		
+		-- std_yawdd
+	- laser measurement noise
+		-- std_laspx
+		-- std_laspy
+		-- both were fixed to a single value std_laspxy
+	- radar measurement noise
+		-- std_radr	
+		-- std_radphi
+		-- std_radrd
 
 The grid search method iterates through ranges of values and evaluates performance for each set of values.
 It gathers the following metrics at each step:
@@ -35,13 +39,23 @@ It gathers the following metrics at each step:
 	rmse_py
 	rmse_vx
 	rmse_vy
-	nis_lidar
-	nis_radar
-	nis_total (average of lidar + radar)
+	nis_percentage (% of measurements with 0.35 > NIS < 7.81)
+	nis_lidar (breakdown)
+	nis_radar (breakdown)
 
 [Here is a small set of samples from grid-search output.](data/gridsearch_fragment.txt)
 
-From the gathered data, parameters that meet the project goal could be easily selected.
+### Analysis
+
+- Select fixed values of laser and radar noise
+- Varying process noise (std-a and std-yawdd) in grid search
+- Tabulate grid search results and sort them (in Excel) by RMSE to pick best process noise values.
+- Plot process noise (std-a and sts-yawdd) against NIS values in a 3D plot.
+
+Pandas dataframes and pyplot are used in plot.py to 3D-plot:
+X-axis: std-a, Y-axis: std_yawdd and Z-axis: NIS %.
+[3D-plot](NIS-plot.png)
+
 
 ## Command line to run grid search
 ```
