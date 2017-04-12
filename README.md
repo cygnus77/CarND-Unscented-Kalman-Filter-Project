@@ -20,18 +20,20 @@ It uses a main file that calls a function called ProcessMeasurement. Anything im
 ![Visualization](./Simulation.png)
 
 ## Achieving RMSE and NIS values
+
 The following parameters were tuned using a grid-search method:
+
 	- process noise
-		-- std_a		
-		-- std_yawdd
+		- std_a		
+		- std_yawdd
 	- laser measurement noise
-		-- std_laspx
-		-- std_laspy
-		-- both were fixed to a single value std_laspxy
+		- std_laspx
+		- std_laspy
+		- both were fixed to a single value std_laspxy
 	- radar measurement noise
-		-- std_radr	
-		-- std_radphi
-		-- std_radrd
+		- std_radr	
+		- std_radphi
+		- std_radrd
 
 The grid search method iterates through ranges of values and evaluates performance for each set of values.
 It gathers the following metrics at each step:
