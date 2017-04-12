@@ -36,16 +36,18 @@ The following parameters were tuned using a grid-search method:
 		- std_radrd
 
 The grid search method iterates through ranges of values and evaluates performance for each set of values.
-It gathers the following metrics at each step:
-	rmse_px
-	rmse_py
-	rmse_vx
-	rmse_vy
-	nis_percentage (% of measurements with 0.35 > NIS < 7.81)
-	nis_lidar (breakdown)
-	nis_radar (breakdown)
 
-[Here is a small set of samples from grid-search output.](data/gridsearch_fragment.txt)
+It gathers the following metrics at each step:
+
+	- rmse_px
+	- rmse_py
+	- rmse_vx
+	- rmse_vy
+	- nis_percentage (% of measurements with 0.35 > NIS < 7.81)
+	- nis_lidar (breakdown)
+	- nis_radar (breakdown)
+
+![Here is sample output from grid-search output.](data/gridsearch_fragment.txt)
 
 ### Analysis
 
