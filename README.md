@@ -47,7 +47,7 @@ It gathers the following metrics at each step:
 	- nis_lidar (breakdown)
 	- nis_radar (breakdown)
 
-![Here is sample output from grid-search output.](data/gridsearch_fragment.txt)
+[Here is sample output from grid-search output.](data/gridsearch_fragment.txt)
 
 ### Analysis
 
