@@ -315,14 +315,15 @@ int main(int argc, char** argv) {
       cout << "Usage: \n\tgridsearch <results_file> {<data_file1> <limit_pxy> <limit_vxy>}+" << endl;
       return 0;
     }
+
+    UKF::std_lasp_xy_ = 0.15;
+    UKF::std_radr_ = 0.3;
+    UKF::std_radphi_ = 0.03;
+    UKF::std_radrd_ = 0.3;
    
     vector<var*> variables {
-      new var_range(&UKF::std_a_, 0.001, 0.1, 0.01),
-      new var_range(&UKF::std_yawdd_, 0.05, 0.25, 0.01),
-      new var_enum(&UKF::std_lasp_xy_, vector<double>{0.0225}),
-      new var_enum(&UKF::std_radr_, vector<double>{0.09}),
-      new var_enum(&UKF::std_radphi_, vector<double>{0.009}),
-      new var_enum(&UKF::std_radrd_, vector<double>{0.09})
+      new var_range(&UKF::std_a_, 0.01, 3, 0.01),
+      new var_range(&UKF::std_yawdd_, 0.01, 3, 0.01)
     };
 
     int count = 0;
@@ -361,6 +362,23 @@ int main(int argc, char** argv) {
     */
 
     //
+    // ** Using measurement noise provided in EKF project **
+    //                PX        PY        VX        VY
+    //  "sample 1"  0.0439351 0.0541247 0.533012  0.539625
+    //  "sample 2"  0.199834  0.197363  0.376363  0.463544
+    //
+    //  Radar NIS between 0.35 and 7.81 in only 37% of measurements
+    //
+    /*
+    UKF::std_a_ = 0.041;
+    UKF::std_yawdd_ = 0.25;
+    UKF::std_lasp_xy_ = 0.0225;
+    UKF::std_radr_ = 0.09;
+    UKF::std_radphi_ = 0.009;
+    UKF::std_radrd_ = 0.09;
+    */
+
+    //
     //  ** Better NIS **
     //                PX        PY        VX        VY
     //  "sample 1"  0.0533476 0.0627673 0.55714   0.551546
@@ -370,10 +388,11 @@ int main(int argc, char** argv) {
     //
     UKF::std_a_ = 0.12;
     UKF::std_yawdd_ = 0.54;
-    UKF::std_lasp_xy_ = 0.0825;
-    UKF::std_radr_ = 0.25;
-    UKF::std_radphi_ = 0.0125;
-    UKF::std_radrd_ = 0.25;
+    UKF::std_lasp_xy_ = 0.15;
+    UKF::std_radr_ = 0.3;
+    UKF::std_radphi_ = 0.03;
+    UKF::std_radrd_ = 0.3;
+
     // process one file
     ofstream out_file(argv[2], ofstream::out);
     result_t result = process_file(argv[1], out_file);
