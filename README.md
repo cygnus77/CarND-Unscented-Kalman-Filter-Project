@@ -26,14 +26,15 @@ The following parameters were tuned using a grid-search method:
 	- process noise
 		- std_a		
 		- std_yawdd
+
+These values are provided by equipment manufacturers:
 	- laser measurement noise
-		- std_laspx
-		- std_laspy
-		- both were fixed to a single value std_laspxy
+		- std_laspx = 0.15
+		- std_laspy = 0.15
 	- radar measurement noise
-		- std_radr	
-		- std_radphi
-		- std_radrd
+		- std_radr = 0.3
+		- std_radphi = 0.03
+		- std_radrd = 0.3
 
 The grid search method iterates through ranges of values and evaluates performance for each set of values.
 
@@ -51,8 +52,8 @@ It gathers the following metrics at each step:
 
 ### Analysis
 
-- Select fixed values of laser and radar noise
-- Varying process noise (std-a and std-yawdd) in grid search
+- Use fixed values of laser and radar noise provided by manufacturer.
+- Vary process noise (std-a and std-yawdd) in grid search
 - Tabulate grid search results and sort them (in Excel) by RMSE to pick best process noise values.
 - Plot process noise (std-a and sts-yawdd) against NIS values in a 3D plot.
 
@@ -66,60 +67,29 @@ After studying the data sets and grid search results, I obtained the following r
 ### Lowest RMSE
 
 - Process noise
-	- std_a = 1.05
-	- std_yawdd = 0.5
+	- std_a = 0.09
+	- std_yawdd = 0.7
 
-- Measurement noise
-	- std_lasp_x = std_lasp_y = 0.3
-	- std_radr = 0.11
-	- std_radphi = 0.001
-	- std_radrd = 0.11
 
 Data | PX | PY | VX | VY
 --- | --- | --- | --- | ---
-"sample 1" | 0.036368 | 0.032266 | 0.460496 | 0.459381
-"sample 2" | 0.181998 | 0.183915 | 0.388531 | 0.489551
+"sample 1" | 0.0610262 | 0.0703744 | 0.55841 | 0.554423
+"sample 2" | 0.188741 | 0.189771 | 0.541626 | 0.526248
 
-** NIS:** Radar NIS too low on average: between 0.35 and 7.81 in only 26% of cases
-
-### Using noise values provided in EKF project
-
-- Process noise
-	- std_a = 1.041
-	- std_yawdd = 0.25
-
-- Measurement noise
-	- std_lasp_x = std_lasp_y = 0.0225
-	- std_radr = 0.09
-	- std_radphi = 0.009
-	- std_radrd = 0.09
-
-Data | PX | PY | VX | VY
---- | --- | --- | --- | ---
-"sample 1" | 0.0439351 | 0.0541247 | 0.533012 | 0.539625
-"sample 2" | 0.199834 | 0.197363 | 0.376363 | 0.463544
-
-** NIS:** Radar NIS between 0.35 and 7.81 in only 42% of measurements
+** NIS:** Radar NIS is low on average: between 0.35 and 7.81 in only 44% of cases
 
 ### Good NIS
 
 - Process noise
-	- std_a = 0.12
-	- std_yawdd = 0.54
-
-- Measurement noise
-	- std_lasp_x = std_lasp_y = 0.0825
-	- std_radr = 0.25
-	- std_radphi = 0.0125
-	- std_radrd = 0.25
+	- std_a = 0.438
+	- std_yawdd = 0.488
 
 Data | PX | PY | VX | VY
 --- | --- | --- | --- | ---
-"sample 1" | 0.0533476 | 0.0627673 | 0.55714 | 0.551546
-"sample 2" | 0.198674 | 0.191792 | 0.474725 | 0.5422
+"sample 1" | 0.0853967 | 0.0898704 | 0.604129 | 0.587199
+"sample 2" | 0.185043 | 0.189281 | 0.548535 | 0.465349
 
-** NIS:** Radar NIS between 0.35 and 7.81 in 81% of measurement
-
+** NIS:** Radar NIS between 0.35 and 7.81 in 69% of measurements
 
 ## Command line to run grid search
 ```
