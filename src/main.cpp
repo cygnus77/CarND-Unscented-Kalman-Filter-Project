@@ -343,51 +343,25 @@ int main(int argc, char** argv) {
 
     //
     //  ** LOWEST RMSE: **
-    //  std_a_ = 1.05, std_yawdd_ = 0.5
-    //  std_lasp_xy_ = 0.3
-    //  std_radr_ = 0.11, :std_radphi_ = 0.001, std_radrd_ = 0.11
+    //  std_a_ = 0.09, std_yawdd_ = 0.7
     //
     //                PX        PY        VX        VY
-    //  "sample 1":  0.036368	0.032266	0.460496	0.459381
-    //  "sample 2":  0.181998	0.183915	0.388531	0.489551
+    //  "sample 1":  0.0610262	0.0703744	0.55841	0.554423
+    //  "sample 2":  0.188741	0.189771	0.541626	0.526248
     //
-    //  But radar NIS too low on average: between 0.35 and 7.81 in only 26% of cases
-    /*
-    UKF::std_a_ = 1.05;
-    UKF::std_yawdd_ = 0.5;
-    UKF::std_lasp_xy_ = 0.3;
-    UKF::std_radr_ = 0.11;
-    UKF::std_radphi_ = 0.001;
-    UKF::std_radrd_ = 0.11;
-    */
-
-    //
-    // ** Using measurement noise provided in EKF project **
-    //                PX        PY        VX        VY
-    //  "sample 1"  0.0439351 0.0541247 0.533012  0.539625
-    //  "sample 2"  0.199834  0.197363  0.376363  0.463544
-    //
-    //  Radar NIS between 0.35 and 7.81 in only 37% of measurements
-    //
-    /*
-    UKF::std_a_ = 0.041;
-    UKF::std_yawdd_ = 0.25;
-    UKF::std_lasp_xy_ = 0.0225;
-    UKF::std_radr_ = 0.09;
-    UKF::std_radphi_ = 0.009;
-    UKF::std_radrd_ = 0.09;
-    */
+    //  But radar NIS is low on average: between 0.35 and 7.81 in only 40% of cases
 
     //
     //  ** Better NIS **
     //                PX        PY        VX        VY
-    //  "sample 1"  0.0533476 0.0627673 0.55714   0.551546
-    //  "sample 2"  0.198674  0.191792	0.474725	0.5422
+    //  "sample 1"  0.0853967	0.0898704	0.604129	0.587199
+    //  "sample 2"  0.185043	0.189281	0.548535	0.465349
     //
-    //  Radar NIS between 0.35 and 7.81 in 81% of measurement
+    //  Radar NIS between 0.35 and 7.81 in 69% of measurement
     //
-    UKF::std_a_ = 0.12;
-    UKF::std_yawdd_ = 0.54;
+    UKF::std_a_ = 0.438;
+    UKF::std_yawdd_ = 0.488;
+    // Fixed values provided by manufacturer
     UKF::std_lasp_xy_ = 0.15;
     UKF::std_radr_ = 0.3;
     UKF::std_radphi_ = 0.03;

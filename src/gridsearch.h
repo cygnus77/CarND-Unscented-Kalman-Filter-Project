@@ -7,6 +7,7 @@
 // Base class for grid search variables
 class var {
 public:
+  virtual ~var() {};
   // reset variable to initial value
   virtual void init() = 0;
   // has variable reached max value
@@ -26,6 +27,7 @@ public:
 
   // constructor - initialize vars
   var_range(double* pvar, double start, double end, double step) : pvar(pvar), start(start), end(end), step(step) { }
+  virtual ~var_range() {}
 
   void init() {
     *pvar = start;
@@ -56,6 +58,7 @@ public:
 
   // constructor
   var_enum(double* pvar, const std::vector<double>& vals) : pvar(pvar), values(vals) {}
+  virtual ~var_enum() {}
 
   void init() {
     idx = 0;

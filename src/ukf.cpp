@@ -41,17 +41,20 @@ UKF::UKF() {
 
   n_aug_ = 7;
 
+  // No sigma points
+  n_sig_ = 2 * n_aug_ + 1;
+
   lambda_ = 3 - n_aug_;
 
-  weights_ = VectorXd(2 * n_aug_ + 1);
-  weights2d_ = MatrixXd(2 * n_aug_ + 1, 2 * n_aug_ + 1);
+  weights_ = VectorXd(n_sig_);
+  weights2d_ = MatrixXd(n_sig_, n_sig_);
   weights2d_.setZero();
 
   // pre-compute weights
   double weight_0 = lambda_ / (lambda_ + n_aug_);
   weights_(0) = weight_0;
   weights2d_(0, 0) = weight_0;
-  for (int i = 1; i < 2 * n_aug_ + 1; i++) {  //2n+1 weights
+  for (int i = 1; i < n_sig_; i++) {  //2n+1 weights
     double weight = 0.5 / (n_aug_ + lambda_);
     weights_(i) = weight;
     weights2d_(i, i) = weight;
@@ -82,10 +85,7 @@ UKF::~UKF() {}
  */
 void UKF::ProcessMeasurement(MeasurementPackage measurement_pack) {
   /**
-  TODO:
-
-  Complete this function! Make sure you switch between lidar and radar
-  measurements.
+  Switch between laser / radar measurement
   */
   if ((!use_laser_ && measurement_pack.sensor_type_ == MeasurementPackage::LASER) ||
     (!use_radar_ && measurement_pack.sensor_type_ == MeasurementPackage::RADAR)) {
@@ -161,7 +161,7 @@ void UKF::Prediction(double delta_t) {
   P_aug.setZero();
 
   //create sigma point matrix
-  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, n_sig_);
 
   //create augmented mean state
   x_aug.topLeftCorner(5, 1) = x_;
@@ -185,7 +185,7 @@ void UKF::Prediction(double delta_t) {
   //// Code from Sigma Point Prediction Assignment - 1
 
   //create matrix with predicted sigma points as columns
-  Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
+  Xsig_pred_ = MatrixXd(n_x_, n_sig_);
 
   //predict sigma points
   for (int i = 0; i < Xsig_aug.cols(); i++) {
@@ -313,7 +313,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //// Code from Predict Radar Measurement - Assignment 1
 
   //create matrix for sigma points in measurement space
-  MatrixXd Zsig = MatrixXd(RADAR_MEAS_DIM, 2 * n_aug_ + 1);
+  MatrixXd Zsig = MatrixXd(RADAR_MEAS_DIM, n_sig_);
 
   //transform sigma points into measurement space
   for (int i = 0; i < Xsig_pred_.cols(); i++) {
