@@ -28,6 +28,7 @@ The following parameters were tuned using a grid-search method:
 		- std_yawdd
 
 These values are provided by equipment manufacturers:
+
 	- laser measurement noise
 		- std_laspx = 0.15
 		- std_laspy = 0.15
