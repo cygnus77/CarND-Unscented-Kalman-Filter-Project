@@ -172,7 +172,6 @@ void UKF::Prediction(double delta_t) {
   Q << std_a_*std_a_, 0, 0, std_yawdd_*std_yawdd_;
   P_aug.bottomRightCorner(2, 2) = Q;
 
-
   //create square root matrix
   MatrixXd A = P_aug.llt().matrixL();
   MatrixXd B = sqrt(lambda_ + n_aug_)*A;
@@ -232,16 +231,10 @@ void UKF::Prediction(double delta_t) {
   x += (Xsig_pred_*weights2d_).rowwise().sum();
 
   //create covariance matrix for prediction
-  MatrixXd P = MatrixXd(n_x_, n_x_);
-  auto Pview = P.setZero().selfadjointView<Eigen::Lower>();
-  //predict state covariance matrix
-  for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    // efficient way to calculate W*M*Mt
-    Pview.rankUpdate(Xsig_pred_.col(i) - x, weights_(i));
-  }
+  MatrixXd m = Xsig_pred_.colwise() - x;
+  P_ = (m * weights2d_) * m.transpose();
 
   x_ = x;
-  P_ = Pview;
 }
 
 /**
@@ -265,16 +258,9 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //calculate mean predicted measurement
   VectorXd z_pred = (Zsig * weights2d_).rowwise().sum();
 
-  //measurement covariance matrix S
-  MatrixXd S = MatrixXd(LIDAR_MEAS_DIM, LIDAR_MEAS_DIM);
   //calculate measurement covariance matrix S
-  auto Sview = S.setZero().selfadjointView<Eigen::Lower>();
-  for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    //efficient way of doing: S += weights_(i) * (Zsig.col(i) - z_pred) * ((Zsig.col(i) - z_pred).transpose());
-    Sview.rankUpdate((Zsig.col(i) - z_pred), weights_(i));
-  }
-  S = Sview;
-  S += Lidar_R_;
+  MatrixXd m = Zsig.colwise() - z_pred;
+  MatrixXd S = ((m * weights2d_) * m.transpose()) + Lidar_R_;
 
   //// Code from UKF Update Assignment - 1
   //create matrix for cross correlation Tc
@@ -282,9 +268,10 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   Tc.setZero();
 
   //calculate cross correlation matrix
-  for (int i = 0; i < Zsig.cols(); i++) {
-    Tc += weights_(i) * (Xsig_pred_.col(i) - x_) * ((Zsig.col(i) - z_pred).transpose());
-  }
+  MatrixXd p = Xsig_pred_.colwise() - x_;
+  MatrixXd k = Zsig.colwise() - z_pred;
+  Tc = (p *  weights2d_) * k.transpose();
+
   //calculate Kalman gain K;
   MatrixXd Sinv = S.inverse();
   MatrixXd K = Tc * Sinv;
@@ -332,14 +319,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   VectorXd z_pred = (Zsig * weights2d_).rowwise().sum();
 
   //measurement covariance matrix S
-  MatrixXd S = MatrixXd(RADAR_MEAS_DIM, RADAR_MEAS_DIM);
-  auto Sview = S.setZero().selfadjointView<Eigen::Lower>();
-  for (int i = 0; i < Xsig_pred_.cols(); i++) {
-    //efficient way to do: S += weights_(i) * (Zsig.col(i) - z_pred) * ((Zsig.col(i) - z_pred).transpose());
-    Sview.rankUpdate(Zsig.col(i) - z_pred, weights_(i));
-  }
-  S = Sview;
-  S += Radar_R_;
+  MatrixXd m = Zsig.colwise() - z_pred;
+  MatrixXd S = ((m * weights2d_) * m.transpose()) + Radar_R_;
 
   //// Code from UKF Update Assignment - 1
   //create matrix for cross correlation Tc
@@ -347,9 +328,9 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   Tc.setZero();
 
   //calculate cross correlation matrix
-  for (int i = 0; i < Zsig.cols(); i++) {
-    Tc += weights_(i) * (Xsig_pred_.col(i) - x_) * ((Zsig.col(i) - z_pred).transpose());
-  }
+  MatrixXd p = Xsig_pred_.colwise() - x_;
+  MatrixXd k = Zsig.colwise() - z_pred;
+  Tc = (p *  weights2d_) * k.transpose();
 
   //calculate Kalman gain K;
   MatrixXd Sinv = S.inverse();
